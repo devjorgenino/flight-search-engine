@@ -1,8 +1,39 @@
 @import "tailwindcss";
 
+/* 
+ * Minimalist Color Palette
+ * Primary: Neutral grays with a single accent color (emerald)
+ * Focus on whitespace, typography, and subtle shadows
+ */
+
 :root {
+  /* Backgrounds */
   --background: #ffffff;
+  --background-secondary: #fafafa;
+  --background-tertiary: #f5f5f5;
+
+  /* Text */
   --foreground: #171717;
+  --foreground-secondary: #525252;
+  --foreground-muted: #a3a3a3;
+
+  /* Accent - Emerald (single accent for minimalism) */
+  --accent: #10b981;
+  --accent-hover: #059669;
+  --accent-light: #d1fae5;
+
+  /* Borders */
+  --border: #e5e5e5;
+  --border-hover: #d4d4d4;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+
+  /* Focus ring for accessibility */
+  --ring: #10b981;
+  --ring-offset: #ffffff;
 }
 
 @theme inline {
@@ -15,12 +46,191 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
-    --foreground: #ededed;
+    --background-secondary: #171717;
+    --background-tertiary: #262626;
+
+    --foreground: #fafafa;
+    --foreground-secondary: #a3a3a3;
+    --foreground-muted: #525252;
+
+    --accent: #34d399;
+    --accent-hover: #10b981;
+    --accent-light: #064e3b;
+
+    --border: #262626;
+    --border-hover: #404040;
+
+    --ring-offset: #0a0a0a;
   }
 }
 
+/* Base styles */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    var(--font-sans),
+    system-ui,
+    -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus visible for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Skip link for accessibility */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent);
+  color: white;
+  padding: 8px 16px;
+  z-index: 100;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Custom scrollbar - minimal */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground-muted);
+}
+
+/* Date input styling */
+input[type="date"] {
+  color-scheme: light dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Range input styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background);
+  box-shadow: var(--shadow);
+  margin-top: -7px;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background);
+  box-shadow: var(--shadow);
+}
+
+/* Selection color */
+::selection {
+  background: var(--accent-light);
+  color: var(--foreground);
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dual range slider utility */
+.dual-range-slider {
+  pointer-events: none;
+}
+
+.dual-range-slider::-webkit-slider-track {
+  background: transparent;
+}
+
+.dual-range-slider::-webkit-slider-thumb {
+  pointer-events: auto;
+  /* Ensure thumb is above everything */
+  position: relative;
+  z-index: 50;
+}
+
+.dual-range-slider::-moz-range-track {
+  background: transparent;
+}
+
+.dual-range-slider::-moz-range-thumb {
+  pointer-events: auto;
+  position: relative;
+  z-index: 50;
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
 }
