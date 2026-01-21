@@ -1,4 +1,4 @@
-import { Airline, Airport } from '@/types/flight';
+import { Airline, Airport, DepartureTimeSlot } from '@/types/flight';
 
 export const AIRLINES: Record<string, Airline> = {
   IB: { code: 'IB', name: 'Iberia' },
@@ -36,11 +36,22 @@ export const AIRPORTS: Airport[] = [
   { code: 'PRG', city: 'Prague', name: 'Václav Havel', country: 'Czech Republic' },
 ];
 
+// Time slot definitions with hour ranges
+export const TIME_SLOT_RANGES: Record<DepartureTimeSlot, { start: number; end: number; label: string; description: string }> = {
+  early: { start: 0, end: 6, label: 'Early', description: '12am - 6am' },
+  morning: { start: 6, end: 12, label: 'Morning', description: '6am - 12pm' },
+  afternoon: { start: 12, end: 18, label: 'Afternoon', description: '12pm - 6pm' },
+  evening: { start: 18, end: 24, label: 'Evening', description: '6pm - 12am' },
+};
+
+// All time slots for "select all" state
+export const ALL_TIME_SLOTS: DepartureTimeSlot[] = ['early', 'morning', 'afternoon', 'evening'];
+
 export const DEFAULT_FILTERS = {
   stops: [0, 1, 2],
   priceRange: [0, 2000] as [number, number],
   airlines: [] as string[],
-  departureTimeRange: [0, 24] as [number, number],
+  departureTimeSlots: [...ALL_TIME_SLOTS] as DepartureTimeSlot[],
   sortBy: 'price' as const,
 };
 

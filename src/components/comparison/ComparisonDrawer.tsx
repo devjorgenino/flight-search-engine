@@ -2,7 +2,7 @@
 
 import { useFlightStore } from '@/stores/useFlightStore';
 import { Button, Badge } from '@/components/ui';
-import { formatDuration, formatTime, formatPrice, getStopsLabel, cn } from '@/lib/utils';
+import { formatDuration, formatTime, formatPrice, cn } from '@/lib/utils';
 import { X, Scale, Plane, Clock, Trophy, Trash2 } from 'lucide-react';
 import { useEffect, useCallback } from 'react';
 import { Flight } from '@/types/flight';
@@ -46,7 +46,6 @@ function StopsSummary({ segments, stops }: StopsSummaryProps) {
 export function ComparisonDrawer() {
   const isOpen = useFlightStore((state) => state.isComparisonOpen);
   const setOpen = useFlightStore((state) => state.setComparisonOpen);
-  const comparisonIds = useFlightStore((state) => state.comparisonIds);
   const getComparisonFlights = useFlightStore((state) => state.getComparisonFlights);
   const clearComparison = useFlightStore((state) => state.clearComparison);
   const toggleComparison = useFlightStore((state) => state.toggleComparison);

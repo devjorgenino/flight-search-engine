@@ -5,6 +5,8 @@ import { StopsFilter } from "./StopsFilter";
 import { PriceRangeFilter } from "./PriceRangeFilter";
 import { AirlineFilter } from "./AirlineFilter";
 import { SortFilter } from "./SortFilter";
+import { DepartureTimeFilter } from "./DepartureTimeFilter";
+import { FavoritesList } from "@/components/features";
 import { type FlightStore } from "@/stores/useFlightStore"; // Import type
 import { useFlightStore } from "@/stores/useFlightStore";
 import { useUIStore } from "@/stores/useUIStore";
@@ -121,6 +123,10 @@ export function FilterPanel({ className }: FilterPanelProps) {
 
       <div className="border-t border-neutral-200 dark:border-neutral-700" />
 
+      <DepartureTimeFilter />
+
+      <div className="border-t border-neutral-200 dark:border-neutral-700" />
+
       <PriceRangeFilter />
 
       <div className="border-t border-neutral-200 dark:border-neutral-700" />
@@ -162,7 +168,7 @@ export function MobileFilterPanel() {
         aria-label="Filter options"
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 p-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 p-4 flex items-center justify-between z-10">
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
             Filters
           </h2>
@@ -175,11 +181,22 @@ export function MobileFilterPanel() {
           </button>
         </div>
 
+        {/* Favorites Section */}
+        <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/30">
+          <FavoritesList 
+            variant="compact" 
+            maxItems={3}
+            className="border-0 shadow-none bg-transparent"
+          />
+        </div>
+
         {/* Content */}
         <div className="p-4 space-y-6">
           <SortFilter />
           <div className="border-t border-neutral-200 dark:border-neutral-700" />
           <StopsFilter />
+          <div className="border-t border-neutral-200 dark:border-neutral-700" />
+          <DepartureTimeFilter />
           <div className="border-t border-neutral-200 dark:border-neutral-700" />
           <PriceRangeFilter />
           <div className="border-t border-neutral-200 dark:border-neutral-700" />

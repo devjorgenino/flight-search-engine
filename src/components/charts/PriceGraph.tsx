@@ -54,7 +54,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
 
 export function PriceGraph() {
   const filteredFlights = useFilteredFlights();
-  const { minPrice, maxPrice, avgPrice } = useFlightStats();
+  const { minPrice, avgPrice } = useFlightStats();
   const isLoading = useFlightStore((state) => state.isLoading);
   const allFlights = useFlightStore((state) => state.flights);
 

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { Flight, FilterState, SearchParams } from "@/types/flight";
-import { DEFAULT_FILTERS } from "@/lib/constants";
+import { Flight, FilterState, SearchParams, DepartureTimeSlot } from "@/types/flight";
+import { DEFAULT_FILTERS, TIME_SLOT_RANGES, ALL_TIME_SLOTS } from "@/lib/constants";
 
 const MAX_COMPARISON = 3;
 
@@ -15,6 +15,8 @@ export interface FlightStore {
   // UI State
   isLoading: boolean;
   error: string | null;
+  hoveredFlightId: string | null;
+  selectedMapFlightId: string | null; // Flight pinned to map on click
 
   // Comparison Feature
   comparisonIds: string[];
@@ -31,6 +33,8 @@ export interface FlightStore {
   resetFilters: () => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
+  setHoveredFlightId: (id: string | null) => void;
+  setSelectedMapFlightId: (id: string | null) => void;
 
   // Comparison Actions
   toggleComparison: (flightId: string) => void;
@@ -48,6 +52,7 @@ export interface FlightStore {
   getFilteredFlights: () => Flight[];
   getAvailableAirlines: () => { code: string; name: string; count: number }[];
   getPriceRange: () => [number, number];
+  getHoveredFlight: () => Flight | null;
 }
 
 export const useFlightStore = create<FlightStore>((set, get) => ({
@@ -57,13 +62,15 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   filters: DEFAULT_FILTERS,
   isLoading: false,
   error: null,
+  hoveredFlightId: null,
+  selectedMapFlightId: null,
   comparisonIds: [],
   isComparisonOpen: false,
   selectedFlight: null,
   isBookingConfirmationOpen: false,
 
   // Actions
-  setFlights: (flights) => set({ flights, comparisonIds: [] }),
+  setFlights: (flights) => set({ flights, comparisonIds: [], hoveredFlightId: null, selectedMapFlightId: null }),
 
   setSearchParams: (params) => set({ searchParams: params }),
 
@@ -77,6 +84,10 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   setLoading: (isLoading) => set({ isLoading }),
 
   setError: (error) => set({ error }),
+
+  setHoveredFlightId: (id) => set({ hoveredFlightId: id }),
+
+  setSelectedMapFlightId: (id) => set({ selectedMapFlightId: id }),
 
   // Comparison Actions
   toggleComparison: (flightId) =>
@@ -138,9 +149,16 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
 
     let filtered = [...flights];
 
-    // Filter by stops
+    // Filter by stops (handle 2+ case: include flights with 2 or more stops)
     if (filters.stops.length > 0 && filters.stops.length < 3) {
-      filtered = filtered.filter((f) => filters.stops.includes(f.stops));
+      filtered = filtered.filter((f) => {
+        // If 2 is selected, include flights with 2+ stops
+        if (filters.stops.includes(2) && f.stops >= 2) {
+          return true;
+        }
+        // Otherwise check exact match for 0 and 1
+        return filters.stops.includes(f.stops);
+      });
     }
 
     // Filter by price range
@@ -157,14 +175,17 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
       );
     }
 
-    // Filter by departure time
-    filtered = filtered.filter((f) => {
-      const hour = new Date(f.departureTime).getHours();
-      return (
-        hour >= filters.departureTimeRange[0] &&
-        hour <= filters.departureTimeRange[1]
-      );
-    });
+    // Filter by departure time slots
+    if (filters.departureTimeSlots.length > 0 && filters.departureTimeSlots.length < ALL_TIME_SLOTS.length) {
+      filtered = filtered.filter((f) => {
+        const hour = new Date(f.departureTime).getHours();
+        // Check if the hour falls within any of the selected time slots
+        return filters.departureTimeSlots.some((slot: DepartureTimeSlot) => {
+          const range = TIME_SLOT_RANGES[slot];
+          return hour >= range.start && hour < range.end;
+        });
+      });
+    }
 
     // Sort
     switch (filters.sortBy) {
@@ -215,5 +236,11 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
 
     const prices = flights.map((f) => f.price.amount);
     return [Math.min(...prices), Math.max(...prices)];
+  },
+
+  getHoveredFlight: () => {
+    const { flights, hoveredFlightId } = get();
+    if (!hoveredFlightId) return null;
+    return flights.find((f) => f.id === hoveredFlightId) || null;
   },
 }));

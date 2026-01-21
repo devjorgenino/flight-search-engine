@@ -53,11 +53,13 @@ export interface SearchParams {
   cabinClass?: 'economy' | 'business' | 'first';
 }
 
+export type DepartureTimeSlot = 'early' | 'morning' | 'afternoon' | 'evening';
+
 export interface FilterState {
   stops: number[]; // [0, 1, 2] = all, [0] = non-stop only
   priceRange: [number, number];
   airlines: string[]; // airline codes
-  departureTimeRange: [number, number]; // hours 0-24
+  departureTimeSlots: DepartureTimeSlot[]; // discrete time slots
   sortBy: 'price' | 'duration' | 'departure';
 }
 

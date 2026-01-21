@@ -16,6 +16,9 @@ FlightSearch is a flight search engine built as a technical challenge, demonstra
 6. [Performance Optimizations](#performance-optimizations)
 7. [Key Components](#key-components)
 8. [Data Flow](#data-flow)
+9. [LocalStorage Sync System](#localstorage-sync-system)
+10. [Favorites System](#favorites-system)
+11. [Responsive Component Design](#responsive-component-design)
 
 ---
 
@@ -496,5 +499,213 @@ FlightSearch demonstrates a production-ready flight search with:
 - **Excellent UX**: Progressive disclosure, immediate feedback
 - **Full accessibility**: WCAG 2.1 AA compliant
 - **Performance focused**: Selective renders, optimized API calls
+- **Client-side persistence**: Favorites and history with real-time sync
 
 The codebase is maintainable, extensible, and ready for production deployment.
+
+---
+
+## LocalStorage Sync System
+
+### Architecture
+
+The application uses a custom localStorage hook with real-time synchronization across tabs and components:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    useLocalStorage Hook                      │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐   │
+│  │ localStorage│  │ Custom Event │  │   State Sync      │   │
+│  │   (data)    │  │'storage-sync'│  │  (React state)    │   │
+│  └──────┬──────┘  └──────┬───────┘  └─────────┬─────────┘   │
+│         │                │                    │              │
+│         └────────────────┴────────────────────┘              │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              │               │               │
+              ▼               ▼               ▼
+       ┌───────────┐   ┌───────────┐   ┌───────────┐
+       │FavoritesList│  │SearchHistory│  │HomePage │
+       └───────────┘   └───────────┘   └───────────┘
+```
+
+### Implementation Details
+
+```typescript
+// Custom event system for real-time sync
+const STORAGE_EVENT = "storage-sync";
+
+const setValue = (newValue: T) => {
+  // 1. Update localStorage
+  localStorage.setItem(key, JSON.stringify(newValue));
+
+  // 2. Update React state
+  setStoredValue(newValue);
+
+  // 3. Dispatch custom event for other components
+  window.dispatchEvent(
+    new CustomEvent(STORAGE_EVENT, {
+      detail: { key, value: newValue },
+    })
+  );
+};
+
+// Listen for changes from other components/tabs
+useEffect(() => {
+  const handleStorageSync = (e: CustomEvent) => {
+    if (e.detail.key === key) {
+      setStoredValue(e.detail.value);
+    }
+  };
+
+  window.addEventListener(STORAGE_EVENT, handleStorageSync);
+  window.addEventListener("storage", handleNativeStorage); // Cross-tab
+
+  return () => {
+    window.removeEventListener(STORAGE_EVENT, handleStorageSync);
+    window.removeEventListener("storage", handleNativeStorage);
+  };
+}, [key]);
+```
+
+### Hydration Safety
+
+To prevent hydration mismatches between server and client:
+
+```typescript
+const [isHydrated, setIsHydrated] = useState(false);
+
+useEffect(() => {
+  setIsHydrated(true);
+}, []);
+
+// Components check isHydrated before rendering localStorage data
+if (!isHydrated) return <Skeleton />;
+```
+
+---
+
+## Favorites System
+
+### Filter Application on Click
+
+When a user clicks a saved favorite, the application:
+
+1. Extracts airline and stops information from the favorite
+2. Applies filters to the flight store
+3. Navigates to search results with filters pre-applied
+
+```typescript
+const handleFavoriteClick = (favorite: FavoriteFlight) => {
+  // Apply filters based on favorite
+  setFilters({
+    airlines: [favorite.airline.code],
+    stops: [favorite.stops],
+  });
+
+  // Navigate to search
+  router.push(`/search?origin=${favorite.origin.code}&...`);
+
+  // Close mobile panel if open
+  setFilterPanelOpen(false);
+};
+```
+
+### Data Structure
+
+```typescript
+interface FavoriteFlight {
+  id: string;
+  airline: { code: string; name: string };
+  origin: { code: string; city: string };
+  destination: { code: string; city: string };
+  departureTime: string;
+  arrivalTime: string;
+  duration: number;
+  stops: number;
+  price: { amount: number; currency: string };
+  savedAt: string; // ISO timestamp
+}
+```
+
+---
+
+## Responsive Component Design
+
+### FavoritesList Variants
+
+| Variant   | Usage              | Layout                              |
+| --------- | ------------------ | ----------------------------------- |
+| `full`    | Dedicated page     | Full details, all actions visible   |
+| `compact` | Mobile filter panel| Single line, essential info only    |
+| `sidebar` | Desktop sidebar    | Medium detail, scrollable list      |
+
+### SearchHistory Variants
+
+| Variant    | Usage              | Layout                              |
+| ---------- | ------------------ | ----------------------------------- |
+| `full`     | Home page section  | City names + codes + time ago       |
+| `compact`  | Mobile             | Codes only (MAD → BCN) + short date |
+| `dropdown` | Overlay/popover    | Compact with close handler          |
+
+### Responsive Breakpoints
+
+```typescript
+// Mobile-first approach
+const isMobile = useMediaQuery("(max-width: 1023px)");
+
+// Conditional rendering
+{isMobile ? (
+  <SearchHistory variant="compact" maxItems={3} />
+) : (
+  <SearchHistory variant="full" maxItems={5} />
+)}
+```
+
+---
+
+## Accessibility Improvements
+
+### Keyboard Navigation
+
+All interactive components support full keyboard navigation:
+
+| Component      | Keys                                      |
+| -------------- | ----------------------------------------- |
+| FavoritesList  | Arrow Up/Down, Enter (select), Delete     |
+| SearchHistory  | Arrow Up/Down, Enter (select)             |
+| PriceCalendar  | Arrows (days), PageUp/Down (months)       |
+| FilterPanel    | Tab navigation, Space/Enter for toggles   |
+
+### ARIA Implementation
+
+```tsx
+<div
+  role="listbox"
+  aria-label="Saved flights"
+  aria-activedescendant={`favorite-${focusedIndex}`}
+>
+  {favorites.map((fav, index) => (
+    <div
+      key={fav.id}
+      id={`favorite-${index}`}
+      role="option"
+      aria-selected={index === focusedIndex}
+      tabIndex={index === focusedIndex ? 0 : -1}
+    >
+      {/* content */}
+    </div>
+  ))}
+</div>
+```
+
+### Screen Reader Announcements
+
+```tsx
+<span className="sr-only">
+  {`${favorite.airline.name} flight from ${favorite.origin.city} to 
+    ${favorite.destination.city}, ${formatPrice(favorite.price)}, 
+    ${favorite.stops === 0 ? "non-stop" : `${favorite.stops} stop${favorite.stops > 1 ? "s" : ""}`}`}
+</span>
+```

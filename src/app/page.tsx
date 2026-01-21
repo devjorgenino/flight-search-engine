@@ -1,10 +1,41 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { SearchForm } from "@/components/search";
-import { Plane, Shield, Zap, Globe, Scale } from "lucide-react";
+import {
+  SearchHistory,
+  FavoritesList,
+  PriceCalendar,
+  generateMockPrices,
+} from "@/components/features";
+import { Card, Button } from "@/components/ui";
+import {
+  Plane,
+  Zap,
+  Globe,
+  Scale,
+  Heart,
+  Share2,
+  Clock,
+  Calendar,
+  Map,
+  Timer,
+} from "lucide-react";
+import { startOfToday, format } from "date-fns";
+import { useFlightStore } from "@/stores/useFlightStore";
 
 export default function Home() {
+  const [showCalendar, setShowCalendar] = useState(false);
+  const resetAll = useFlightStore((state) => state.resetAll);
+
+  // Reset all flight data, filters, and map state when arriving at home
+  useEffect(() => {
+    resetAll();
+  }, [resetAll]);
+
+  // Generate mock prices for demo
+  const mockPrices = useMemo(() => generateMockPrices(startOfToday(), 60), []);
+
   return (
     <main className="min-h-screen bg-white dark:bg-neutral-950">
       {/* Skip link for accessibility */}
@@ -55,59 +86,160 @@ export default function Home() {
               <SearchForm variant="hero" />
             </Suspense>
           </div>
+
+          {/* Quick Actions */}
+          <div className="flex justify-center gap-3 mt-6">
+            <Button
+              variant={showCalendar ? "primary" : "outline"}
+              size="sm"
+              onClick={() => setShowCalendar(!showCalendar)}
+              className="gap-2"
+            >
+              <Calendar className="w-4 h-4" />
+              <span className="hidden sm:inline">View Price Calendar</span>
+              <span className="sm:hidden">Calendar</span>
+            </Button>
+          </div>
+
+          {/* Price Calendar (Toggleable) */}
+          {showCalendar && (
+            <div className="mt-8 animate-fade-in max-w-2xl mx-auto">
+              <div className="text-center mb-4">
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Sample prices for <strong>Madrid (MAD)</strong> to{" "}
+                  <strong>Barcelona (BCN)</strong>
+                </p>
+              </div>
+              <PriceCalendar
+                prices={mockPrices}
+                currency="EUR"
+                showStats={true}
+                onSelectDate={(date) => {
+                  console.log("Selected date:", format(date, "yyyy-MM-dd"));
+                }}
+              />
+            </div>
+          )}
         </div>
       </section>
 
-      {/* One-Way Features Section */}
-      <section className="py-8 md:py-16">
+      {/* Recent Searches Section */}
+      <section className="py-8 md:py-12 border-b border-neutral-100 dark:border-neutral-900">
+        <div className="container mx-auto px-4">
+          <SearchHistory />
+        </div>
+      </section>
+
+      {/* Saved Flights Section */}
+      <section className="py-8 md:py-12 border-b border-neutral-100 dark:border-neutral-900">
+        <div className="container mx-auto px-4">
+          <FavoritesList variant="full" />
+        </div>
+      </section>
+
+      {/* New Features Section */}
+      <section className="py-8 md:py-16 bg-gradient-to-b from-emerald-50/50 to-white dark:from-emerald-950/20 dark:to-neutral-950">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-xs font-semibold rounded-full mb-4">
+              <Zap className="w-3 h-3" />
+              FEATURES
+            </span>
             <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-4">
-              Classic One-Way Search
+              Enhanced Flight Search Experience
             </h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
-              All the classic features you expect from a premium flight search.
+              Discover new ways to find and save your perfect flights.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-            {/* Feature 1 */}
-            <article className="text-center p-6">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center mb-4 mx-auto">
-                <Zap
-                  className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            {/* Feature: Favorites */}
+            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-950 flex items-center justify-center mb-4 mx-auto">
+                <Heart className="w-5 h-5 text-red-500" aria-hidden="true" />
+              </div>
+              <h3 className="font-medium text-neutral-900 dark:text-white mb-1.5">
+                Save Favorites
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Heart your favorite flights and access them anytime
+              </p>
+            </Card>
+
+            {/* Feature: Share */}
+            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950 flex items-center justify-center mb-4 mx-auto">
+                <Share2 className="w-5 h-5 text-blue-500" aria-hidden="true" />
+              </div>
+              <h3 className="font-medium text-neutral-900 dark:text-white mb-1.5">
+                Share Flights
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Share deals via WhatsApp, email, or copy link
+              </p>
+            </Card>
+
+            {/* Feature: Search History */}
+            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950 flex items-center justify-center mb-4 mx-auto">
+                <Clock className="w-5 h-5 text-purple-500" aria-hidden="true" />
+              </div>
+              <h3 className="font-medium text-neutral-900 dark:text-white mb-1.5">
+                Search History
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Quick access to your recent flight searches
+              </p>
+            </Card>
+
+            {/* Feature: Price Alerts */}
+            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950 flex items-center justify-center mb-4 mx-auto">
+                <Timer className="w-5 h-5 text-amber-500" aria-hidden="true" />
+              </div>
+              <h3 className="font-medium text-neutral-900 dark:text-white mb-1.5">
+                Deal Countdowns
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Limited-time offers with live countdown timers
+              </p>
+            </Card>
+
+            {/* Feature: Route Map */}
+            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-sky-50 dark:bg-sky-950 flex items-center justify-center mb-4 mx-auto">
+                <Map className="w-5 h-5 text-sky-500" aria-hidden="true" />
+              </div>
+              <h3 className="font-medium text-neutral-900 dark:text-white mb-1.5">
+                Route Visualization
+              </h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Interactive maps with animated flight paths
+              </p>
+            </Card>
+
+            {/* Feature: Price Calendar */}
+            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-green-50 dark:bg-green-950 flex items-center justify-center mb-4 mx-auto">
+                <Calendar
+                  className="w-5 h-5 text-green-500"
                   aria-hidden="true"
                 />
               </div>
               <h3 className="font-medium text-neutral-900 dark:text-white mb-1.5">
-                Live Prices
+                Price Calendar
               </h3>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Real-time pricing with interactive charts
+                Find the cheapest days to fly at a glance
               </p>
-            </article>
+            </Card>
 
-            {/* Feature 2 */}
-            <article className="text-center p-6">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center mb-4 mx-auto">
-                <Shield
-                  className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
-                  aria-hidden="true"
-                />
-              </div>
-              <h3 className="font-medium text-neutral-900 dark:text-white mb-1.5">
-                No Hidden Fees
-              </h3>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Complete price transparency with no surprises
-              </p>
-            </article>
-
-            {/* Feature 3 */}
-            <article className="text-center p-6">
+            {/* Feature: Compare */}
+            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center mb-4 mx-auto">
                 <Scale
-                  className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                  className="w-5 h-5 text-emerald-500"
                   aria-hidden="true"
                 />
               </div>
@@ -115,25 +247,22 @@ export default function Home() {
                 Compare Flights
               </h3>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Side-by-side comparison up to 3 flights
+                Side-by-side comparison of up to 3 flights
               </p>
-            </article>
+            </Card>
 
-            {/* Feature 4 */}
-            <article className="text-center p-6">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center mb-4 mx-auto">
-                <Globe
-                  className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
-                  aria-hidden="true"
-                />
+            {/* Feature: Live Prices */}
+            <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-950 flex items-center justify-center mb-4 mx-auto">
+                <Globe className="w-5 h-5 text-orange-500" aria-hidden="true" />
               </div>
               <h3 className="font-medium text-neutral-900 dark:text-white mb-1.5">
                 Global Coverage
               </h3>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                500+ airlines worldwide
+                500+ airlines with real-time pricing
               </p>
-            </article>
+            </Card>
           </div>
         </div>
       </section>

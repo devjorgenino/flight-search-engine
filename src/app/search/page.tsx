@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, Suspense, useCallback } from "react";
+import { useEffect, Suspense, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { SearchForm } from "@/components/search";
@@ -9,21 +9,31 @@ import { FilterPanel, MobileFilterPanel } from "@/components/filters";
 import { PriceGraph } from "@/components/charts";
 import { ComparisonDrawer } from "@/components/comparison";
 import { BookingConfirmation } from "@/components/booking";
+import { FlightLoadingAnimation, RouteMap, FavoritesList } from "@/components/features";
 import { Button } from "@/components/ui";
 import { useFlightSearch } from "@/hooks/useFlightSearch";
+import { useSearchHistory } from "@/hooks/useLocalStorage";
 import { useUIStore } from "@/stores/useUIStore";
 import { useFlightStore } from "@/stores/useFlightStore";
 import { Plane, SlidersHorizontal, ArrowRight } from "lucide-react";
 import { SearchParams } from "@/types/flight";
+import { AIRPORTS } from "@/lib/constants";
 
 function SearchContent() {
   const searchParams = useSearchParams();
   const { search, warning, dataSource, isRetryable, isLoading } =
     useFlightSearch();
+  const { addSearch, isHydrated: isHistoryHydrated } = useSearchHistory();
+  
+  // Use refs to prevent infinite loops
+  const processedSearchRef = useRef<string | null>(null);
+  const addedToHistoryRef = useRef<string | null>(null);
 
   const setFilterPanelOpen = useUIStore((state) => state.setFilterPanelOpen);
   const flights = useFlightStore((state) => state.flights);
   const selectedFlight = useFlightStore((state) => state.selectedFlight);
+  const hoveredFlightId = useFlightStore((state) => state.hoveredFlightId);
+  const selectedMapFlightId = useFlightStore((state) => state.selectedMapFlightId);
   const isBookingConfirmationOpen = useFlightStore(
     (state) => state.isBookingConfirmationOpen,
   );
@@ -32,8 +42,8 @@ function SearchContent() {
   );
   const resetAll = useFlightStore((state) => state.resetAll);
 
-  // Build search params object
-  const getSearchParams = useCallback((): SearchParams | null => {
+  // Build search params object - memoized to prevent recalculation
+  const currentSearchParams = useMemo((): SearchParams | null => {
     const origin = searchParams.get("origin");
     const destination = searchParams.get("destination");
     const departureDate = searchParams.get("departureDate");
@@ -52,21 +62,49 @@ function SearchContent() {
     };
   }, [searchParams]);
 
-  // Parse URL params and trigger search
+  // Parse URL params and trigger search - with proper dependency tracking
   useEffect(() => {
-    const params = getSearchParams();
-    if (params) {
-      search(params);
+    if (!currentSearchParams) return;
+    
+    const searchKey = `${currentSearchParams.origin}-${currentSearchParams.destination}-${currentSearchParams.departureDate}`;
+    
+    // Trigger search only once per unique search
+    if (processedSearchRef.current !== searchKey) {
+      processedSearchRef.current = searchKey;
+      search(currentSearchParams);
     }
-  }, [searchParams, search, getSearchParams]);
+  }, [currentSearchParams, search]);
+
+  // Add to history in separate effect - waits for hydration
+  useEffect(() => {
+    if (!currentSearchParams || !isHistoryHydrated) return;
+    
+    const historyKey = `${currentSearchParams.origin}-${currentSearchParams.destination}-${currentSearchParams.departureDate}`;
+    
+    // Only add to history once per unique search
+    if (addedToHistoryRef.current === historyKey) return;
+    addedToHistoryRef.current = historyKey;
+    
+    const originAirport = AIRPORTS.find(a => a.code === currentSearchParams.origin);
+    const destAirport = AIRPORTS.find(a => a.code === currentSearchParams.destination);
+    
+    addSearch({
+      origin: currentSearchParams.origin,
+      originCity: originAirport?.city || currentSearchParams.origin,
+      destination: currentSearchParams.destination,
+      destinationCity: destAirport?.city || currentSearchParams.destination,
+      departureDate: currentSearchParams.departureDate,
+      returnDate: currentSearchParams.returnDate,
+      passengers: currentSearchParams.passengers,
+    });
+  }, [currentSearchParams, addSearch, isHistoryHydrated]);
 
   // Retry handler
   const handleRetry = useCallback(() => {
-    const params = getSearchParams();
-    if (params) {
-      search(params);
+    if (currentSearchParams) {
+      search(currentSearchParams);
     }
-  }, [getSearchParams, search]);
+  }, [currentSearchParams, search]);
 
   // Handle booking confirmation close
   const handleBookingClose = useCallback(() => {
@@ -76,6 +114,28 @@ function SearchContent() {
 
   const origin = searchParams.get("origin");
   const destination = searchParams.get("destination");
+
+  // Get the flight to display in the map
+  // Priority: 1. Pinned (click) > 2. Hovered > 3. First flight
+  const displayFlight = useMemo(() => {
+    // Priority 1: Pinned flight (selected by click)
+    if (selectedMapFlightId) {
+      const selected = flights.find(f => f.id === selectedMapFlightId);
+      if (selected) return selected;
+    }
+    // Priority 2: Hovered flight
+    if (hoveredFlightId) {
+      const hovered = flights.find(f => f.id === hoveredFlightId);
+      if (hovered) return hovered;
+    }
+    // Default: first flight
+    return flights[0] || null;
+  }, [selectedMapFlightId, hoveredFlightId, flights]);
+  
+  // Determine the display mode for the map info text
+  const mapDisplayMode = selectedMapFlightId ? 'pinned' : hoveredFlightId ? 'hovered' : null;
+  
+  const hasFlights = flights.length > 0;
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -139,11 +199,13 @@ function SearchContent() {
               </div>
             )}
 
+            {/* Route Map Toggle - removed, map always visible */}
+
             {/* Mobile filter button */}
             <Button
               variant="outline"
               size="sm"
-              className="lg:hidden"
+              className="lg:hidden ml-2"
               onClick={() => setFilterPanelOpen(true)}
               aria-label="Open filters"
               disabled={isLoading || flights.length === 0}
@@ -162,6 +224,29 @@ function SearchContent() {
         </div>
       </div>
 
+      {/* Route Map - Always visible when flights exist */}
+      {hasFlights && displayFlight && (
+        <div className="border-b border-neutral-200 dark:border-neutral-800">
+          <div className="container mx-auto px-4 py-4">
+            <RouteMap 
+              flight={displayFlight} 
+              height={280} 
+              variant="full" 
+              key={displayFlight.id}
+            />
+            {mapDisplayMode && (
+              <p className="text-xs text-center text-neutral-500 dark:text-neutral-400 mt-2">
+                {mapDisplayMode === 'pinned' ? '📌 Pinned: ' : 'Showing: '}
+                {displayFlight.airline.name} - {displayFlight.origin.code} → {displayFlight.destination.code}
+                {mapDisplayMode === 'pinned' && (
+                  <span className="ml-2 text-neutral-400 dark:text-neutral-500">(click another flight to change)</span>
+                )}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6" id="main-content">
         <div className="flex gap-6">
@@ -171,14 +256,23 @@ function SearchContent() {
               className="hidden lg:block w-72 flex-shrink-0 animate-in fade-in slide-in-from-left-4 duration-500"
               aria-label="Flight filters"
             >
-              <div className="sticky top-20">
+              <div className="sticky top-20 space-y-4">
                 <FilterPanel />
+                <FavoritesList variant="compact" />
               </div>
             </aside>
           )}
 
           {/* Results */}
           <div className="flex-1 min-w-0">
+            {/* Enhanced Loading Animation */}
+            {isLoading && (
+              <FlightLoadingAnimation 
+                variant="full"
+                message="Searching for the best flights..."
+              />
+            )}
+
             {/* Price Graph */}
             {flights.length > 0 && !isLoading && (
               <section className="mb-6" aria-label="Price trends">
@@ -187,14 +281,16 @@ function SearchContent() {
             )}
 
             {/* Flight List */}
-            <section id="flight-results" aria-label="Flight results">
-              <FlightList
-                warning={warning}
-                dataSource={dataSource}
-                isRetryable={isRetryable}
-                onRetry={handleRetry}
-              />
-            </section>
+            {!isLoading && (
+              <section id="flight-results" aria-label="Flight results">
+                <FlightList
+                  warning={warning}
+                  dataSource={dataSource}
+                  isRetryable={isRetryable}
+                  onRetry={handleRetry}
+                />
+              </section>
+            )}
           </div>
         </div>
       </main>
@@ -220,14 +316,7 @@ export default function SearchPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center">
-          <div
-            className="flex flex-col items-center gap-3"
-            role="status"
-            aria-label="Loading page"
-          >
-            <div className="w-8 h-8 border-2 border-neutral-200 border-t-emerald-600 dark:border-neutral-700 dark:border-t-emerald-400 rounded-full animate-spin" />
-            <p className="text-sm text-neutral-500">Loading...</p>
-          </div>
+          <FlightLoadingAnimation variant="compact" message="Loading..." />
         </div>
       }
     >

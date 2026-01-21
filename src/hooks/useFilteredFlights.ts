@@ -5,13 +5,15 @@ import { useFlightStore } from '@/stores/useFlightStore';
 import { Flight } from '@/types/flight';
 
 export function useFilteredFlights(): Flight[] {
-  const getFilteredFlights = useFlightStore((state) => state.getFilteredFlights);
+  // Subscribe to both flights and filters to trigger re-renders when they change
   const flights = useFlightStore((state) => state.flights);
   const filters = useFlightStore((state) => state.filters);
+  const getFilteredFlights = useFlightStore((state) => state.getFilteredFlights);
 
   // Re-compute when flights or filters change
   return useMemo(() => {
     return getFilteredFlights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flights, filters, getFilteredFlights]);
 }
 

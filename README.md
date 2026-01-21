@@ -32,6 +32,9 @@ FlightSearch is a flight search application that allows users to search for flig
 | 📊 **Live Price Graph**  | Interactive Recharts visualization that updates with filters      |
 | 🎚️ **Advanced Filters**  | Filter by stops, price range, airlines, and sort options          |
 | ⚖️ **Flight Comparison** | Compare up to 3 flights side-by-side with highlighted best values |
+| ❤️ **Favorites System**  | Save flights to favorites with real-time sync across tabs         |
+| 🕐 **Search History**    | Recent searches with one-click repeat, responsive design          |
+| 📅 **Price Calendar**    | Visual price calendar with keyboard navigation and accessibility  |
 | 📱 **Responsive**        | Mobile-first design with adaptive layouts                         |
 | ⚡ **Fast**              | Optimized renders with Zustand selectors                          |
 | 🎨 **Minimalist UI**     | Clean design with neutral palette and emerald accent              |
@@ -48,6 +51,7 @@ FlightSearch is a flight search application that allows users to search for flig
 | **Tailwind CSS 4** | Utility-first styling                |
 | **Zustand**        | Lightweight state management         |
 | **Recharts**       | Composable chart library             |
+| **localStorage**   | Client-side persistence with sync    |
 | **Lucide React**   | Icon library                         |
 | **date-fns**       | Date manipulation                    |
 
@@ -134,8 +138,13 @@ src/
 │   ├── comparison/
 │   │   └── ComparisonDrawer.tsx  # Side-by-side flight comparison
 │   │
-│   └── charts/
-│       └── PriceGraph.tsx    # Recharts area chart
+│   ├── charts/
+│   │   └── PriceGraph.tsx    # Recharts area chart
+│   │
+│   └── features/
+│       ├── FavoritesList.tsx     # Saved flights with filter apply
+│       ├── SearchHistory.tsx     # Recent searches (responsive)
+│       └── PriceCalendar.tsx     # Visual price calendar
 │
 ├── stores/
 │   ├── useFlightStore.ts     # Main state: flights, filters, actions
@@ -143,7 +152,8 @@ src/
 │
 ├── hooks/
 │   ├── useFlightSearch.ts    # Search trigger and loading state
-│   └── useFilteredFlights.ts # Memoized filtered results
+│   ├── useFilteredFlights.ts # Memoized filtered results
+│   └── useLocalStorage.ts    # Favorites & history with real-time sync
 │
 ├── lib/
 │   ├── utils.ts              # Helpers: cn(), formatPrice(), etc.
@@ -309,6 +319,65 @@ const isSelected = comparedFlights.some((f) => f.id === flight.id);
 - Highlights best price (green) and fastest duration
 - Easy add/remove with toggle buttons on each flight card
 
+### FavoritesList
+
+Save flights to favorites for quick access:
+
+```tsx
+// Add to favorites from FlightCard
+const { toggleFavorite, isFavorite } = useFavorites();
+
+<Button onClick={() => toggleFavorite(flight)}>
+  {isFavorite(flight.id) ? <HeartOff /> : <Heart />}
+</Button>
+
+// Display favorites on home page or filter panel
+<FavoritesList variant="compact" maxItems={3} />
+```
+
+**Features:**
+
+- **Real-time sync**: Changes sync instantly across tabs/components via custom events
+- **Filter application**: Clicking a favorite applies airline + stops filters automatically
+- **Responsive design**: Compact cards on mobile, detailed view on desktop
+- **Keyboard navigation**: Arrow keys, Enter to select, Delete to remove
+- **Hydration-safe**: Waits for client-side hydration before showing data
+
+### SearchHistory
+
+Track and repeat recent searches:
+
+```tsx
+// Automatically saves searches on the search results page
+const { addSearch, history } = useSearchHistory();
+
+// Display recent searches
+<SearchHistory variant="dropdown" maxItems={5} onSelect={handleClose} />
+```
+
+**Features:**
+
+- **Responsive variants**: Compact (mobile), full (desktop), dropdown (overlay)
+- **Time formatting**: Shows "2 hours ago", "Yesterday", etc.
+- **One-click repeat**: Click to repeat any previous search
+- **Keyboard accessible**: Full keyboard navigation support
+
+### PriceCalendar
+
+Visual calendar showing price trends:
+
+```tsx
+<PriceCalendar origin="MAD" destination="BCN" />
+```
+
+**Features:**
+
+- **Price visualization**: Color-coded days from green (cheap) to red (expensive)
+- **Stats bar**: Shows price range and average for the month
+- **Keyboard navigation**: Arrow keys for days, PageUp/PageDown for months
+- **TODAY badge**: Visual indicator for current date
+- **Full accessibility**: ARIA labels, screen reader announcements
+
 ---
 
 ## 🎨 Design System
@@ -402,6 +471,24 @@ All filter changes trigger `getFilteredFlights()` which both `FlightList` and `P
    - Click "Filters" button
    - Verify slide-over panel works
 
+6. **Favorites Testing**
+   - Click heart icon on a flight card to add to favorites
+   - Verify favorite appears on home page "Saved Flights" section
+   - Open new tab → favorite syncs instantly
+   - Click favorite → navigates to search with filters applied
+   - Use keyboard: Arrow keys to navigate, Delete to remove
+
+7. **Search History Testing**
+   - Perform a search → verify it appears in history
+   - Check responsive: compact on mobile, detailed on desktop
+   - Click history item → repeats the search
+
+8. **Price Calendar Testing**
+   - Navigate to home page, scroll to price calendar
+   - Use arrow keys to navigate days
+   - Use PageUp/PageDown to change months
+   - Verify "TODAY" badge on current date
+
 ---
 
 ## 🚢 Deployment
@@ -429,13 +516,15 @@ AMADEUS_ENVIRONMENT=production
 ## 📈 Future Improvements
 
 - [ ] Add React Query for data fetching with caching
-- [ ] Implement date range selection for price calendar view
 - [ ] Add flight details modal with segments
 - [ ] Integrate real Amadeus API
 - [ ] Add unit tests with Jest/Vitest
 - [ ] Add E2E tests with Playwright
 - [ ] Implement user authentication for saved searches
 - [x] Flight comparison feature (compare up to 3 flights)
+- [x] Favorites system with real-time sync across tabs
+- [x] Search history with responsive design
+- [x] Price calendar with keyboard navigation
 
 ---
 
