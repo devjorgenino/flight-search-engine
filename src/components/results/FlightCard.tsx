@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Flight } from '@/types/flight';
 import { Card, Badge, Button } from '@/components/ui';
 import { FlightStopsDetail } from './FlightStopsDetail';
@@ -19,6 +19,16 @@ interface FlightCardProps {
 
 export function FlightCard({ flight, onSelect, showCountdown = false, variant = 'default' }: FlightCardProps) {
   const [isStopsExpanded, setIsStopsExpanded] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
   
   const departureTime = formatTime(flight.departureTime);
   const arrivalTime = formatTime(flight.arrivalTime);
@@ -31,11 +41,9 @@ export function FlightCard({ flight, onSelect, showCountdown = false, variant = 
   const selectFlight = useFlightStore((state) => state.selectFlight);
   const setHoveredFlightId = useFlightStore((state) => state.setHoveredFlightId);
   const setSelectedMapFlightId = useFlightStore((state) => state.setSelectedMapFlightId);
-  const hoveredFlightId = useFlightStore((state) => state.hoveredFlightId);
   const selectedMapFlightId = useFlightStore((state) => state.selectedMapFlightId);
   const isInComparison = comparisonIds.includes(flight.id);
   const canAddToComparison = comparisonIds.length < 3;
-  const isHovered = hoveredFlightId === flight.id;
   const isSelectedForMap = selectedMapFlightId === flight.id;
 
   // Determine if this is a "hot deal" (low price, few seats)
@@ -62,11 +70,21 @@ export function FlightCard({ flight, onSelect, showCountdown = false, variant = 
     setIsStopsExpanded(prev => !prev);
   }, []);
 
+  // Debounced hover to prevent rapid state updates
   const handleMouseEnter = useCallback(() => {
-    setHoveredFlightId(flight.id);
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredFlightId(flight.id);
+    }, 100); // 100ms debounce
   }, [setHoveredFlightId, flight.id]);
 
   const handleMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
     setHoveredFlightId(null);
   }, [setHoveredFlightId]);
 
@@ -85,12 +103,13 @@ export function FlightCard({ flight, onSelect, showCountdown = false, variant = 
       variant="bordered"
       padding="none"
       className={cn(
-        'group transition-all duration-200 overflow-hidden',
-        'hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-600',
-        'focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2',
+        'group overflow-hidden',
+        // NO hover effects that cause layout shift - only subtle border color change
+        'transition-colors duration-150',
+        'hover:border-neutral-300 dark:hover:border-neutral-600',
+        'focus-within:outline focus-within:outline-2 focus-within:outline-emerald-500 focus-within:outline-offset-2',
         isInComparison && 'border-emerald-500 dark:border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20',
-        isSelectedForMap && !isInComparison && 'border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/30 shadow-lg ring-2 ring-blue-500/20',
-        isHovered && !isInComparison && !isSelectedForMap && 'border-blue-300 dark:border-blue-600 bg-blue-50/20 dark:bg-blue-950/10',
+        isSelectedForMap && !isInComparison && 'border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/30',
         !isCompact && 'cursor-pointer',
       )}
       onMouseEnter={handleMouseEnter}
@@ -123,19 +142,28 @@ export function FlightCard({ flight, onSelect, showCountdown = false, variant = 
         <div className="flex flex-col gap-4">
           {/* Main Row: Airline + Flight Info + Price */}
           <div className="flex items-center gap-4">
-            {/* Airline */}
-            <div className="flex items-center gap-3 w-24 flex-shrink-0">
+            {/* Airline Logo & Name */}
+            <div className="flex items-center gap-2.5 min-w-[100px] md:min-w-[120px] flex-shrink-0">
+              {/* Circular airline badge */}
               <div 
-                className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-700 flex items-center justify-center shadow-sm"
-                aria-hidden="true"
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-neutral-800"
+                role="img"
+                aria-label={`${flight.airline.name} logo`}
               >
-                <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                <span className="text-xs font-bold text-white tracking-tight">
                   {flight.airline.code}
                 </span>
               </div>
-              <div className="hidden md:block">
-                <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400 truncate max-w-[60px]">
+              {/* Airline name - visible on all screens */}
+              <div className="flex-1 min-w-0">
+                <p 
+                  className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate"
+                  title={flight.airline.name}
+                >
                   {flight.airline.name}
+                </p>
+                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 md:hidden">
+                  {flight.airline.code}
                 </p>
               </div>
             </div>

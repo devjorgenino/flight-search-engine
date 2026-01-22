@@ -52,7 +52,7 @@ export function FlightLoadingAnimation({
     );
   }
 
-  // Full variant
+  // Full variant - simplified with centered plane
   return (
     <div className={cn(
       'flex flex-col items-center justify-center gap-6 py-16',
@@ -76,10 +76,10 @@ export function FlightLoadingAnimation({
             <Cloud className="w-10 h-5" />
           </div>
           
-          {/* Flight path */}
+          {/* Flight path - dashed line */}
           <svg className="absolute inset-0 w-full h-full" viewBox="0 0 256 128">
             <path
-              d="M -20 80 Q 128 40 276 80"
+              d="M 20 70 Q 128 50 236 70"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -88,11 +88,11 @@ export function FlightLoadingAnimation({
             />
           </svg>
           
-          {/* Animated plane */}
-          <div className="absolute animate-plane-path">
-            <div className="relative">
-              <div className="absolute -inset-2 bg-emerald-400/20 rounded-full blur-md animate-pulse" />
-              <Plane className="w-8 h-8 text-emerald-600 dark:text-emerald-400 rotate-12" />
+          {/* Centered floating plane */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="relative animate-plane-float">
+              <div className="absolute -inset-3 bg-emerald-400/30 rounded-full blur-lg" />
+              <Plane className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
             </div>
           </div>
         </div>

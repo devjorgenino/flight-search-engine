@@ -13,12 +13,11 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
       elevated: cn(
         'bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-800',
         'shadow-md hover:shadow-lg border border-neutral-100 dark:border-neutral-700',
-        'transition-all duration-200'
+        'transition-shadow duration-150 ease-out'
       ),
       bordered: cn(
         'bg-white dark:bg-neutral-900',
-        'border border-neutral-200 dark:border-neutral-800',
-        'hover:border-neutral-300 dark:hover:border-neutral-600'
+        'border border-neutral-200 dark:border-neutral-800'
       ),
     };
 
