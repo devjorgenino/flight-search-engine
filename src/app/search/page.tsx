@@ -9,7 +9,7 @@ import { FilterPanel, MobileFilterPanel } from "@/components/filters";
 import { PriceGraph } from "@/components/charts";
 import { ComparisonDrawer } from "@/components/comparison";
 import { BookingConfirmation } from "@/components/booking";
-import { FlightLoadingAnimation, RouteMap, FavoritesList } from "@/components/features";
+import { FlightLoadingAnimation, RouteMap, RouteMapSkeleton, FavoritesList } from "@/components/features";
 import { Button } from "@/components/ui";
 import { useFlightSearch } from "@/hooks/useFlightSearch";
 import { useSearchHistory } from "@/hooks/useLocalStorage";
@@ -247,8 +247,14 @@ function SearchContent() {
         </div>
       </div>
 
-      {/* Route Map - Always visible when flights exist */}
-      {hasFlights && displayFlight && (
+      {/* Route Map - Show skeleton during loading, map when flights exist */}
+      {isLoading ? (
+        <div className="border-b border-neutral-200 dark:border-neutral-800">
+          <div className="container mx-auto px-4 py-4">
+            <RouteMapSkeleton height={280} />
+          </div>
+        </div>
+      ) : hasFlights && displayFlight ? (
         <div className="border-b border-neutral-200 dark:border-neutral-800">
           <div className="container mx-auto px-4 py-4">
             <RouteMap 
@@ -259,7 +265,7 @@ function SearchContent() {
             />
             {mapDisplayMode && (
               <p className="text-xs text-center text-neutral-500 dark:text-neutral-400 mt-2">
-                {mapDisplayMode === 'pinned' ? '📌 Pinned: ' : 'Showing: '}
+                {mapDisplayMode === 'pinned' ? 'Pinned: ' : 'Showing: '}
                 {displayFlight.airline.name} - {displayFlight.origin.code} → {displayFlight.destination.code}
                 {mapDisplayMode === 'pinned' && (
                   <span className="ml-2 text-neutral-400 dark:text-neutral-500">(click another flight to change)</span>
@@ -268,7 +274,7 @@ function SearchContent() {
             )}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6" id="main-content">
