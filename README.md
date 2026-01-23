@@ -1,180 +1,71 @@
-# ✈️ FlightSearch - Flight Search Engine
+# FlightSearch - Flight Search Engine
 
-A modern, responsive flight search engine built with Next.js 15, TypeScript, and Tailwind CSS. Features real-time price filtering, interactive charts, and a clean UI design.
+A modern, responsive flight search engine built with Next.js 16, React 19, TypeScript, and Tailwind CSS. Features real-time flight data from Google Flights via SerpApi, interactive price charts, and a clean UI design.
 
-![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)
+![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=flat-square&logo=tailwind-css)
-![Zustand](https://img.shields.io/badge/Zustand-5.0-orange?style=flat-square)
-![Recharts](https://img.shields.io/badge/Recharts-2.0-22b5bf?style=flat-square)
 
 ---
 
-## 🎯 Overview
+## Overview
 
-FlightSearch is a flight search application that allows users to search for flights, filter results by multiple criteria, and visualize price trends through an interactive chart. The application is designed with a focus on user experience, performance, and code maintainability.
+FlightSearch is a flight search application that allows users to search for flights using real-time data from Google Flights, filter results by multiple criteria, and visualize price trends through an interactive chart. The application is designed with a focus on user experience, performance, and code maintainability.
 
 ### Key Highlights
 
+- **Real Flight Data**: Live flight prices from Google Flights via SerpApi
 - **Real-time Filtering**: Filters update both the flight list and price chart simultaneously
+- **Airline Logos**: Actual airline logos from Google Flights with smart fallbacks
+- **Interactive Route Map**: Animated flight path visualization with stop markers
 - **Modern UI**: Custom design with gradients, cards, and smooth transitions
 - **Responsive Design**: Fully functional on mobile with slide-over filter panel
-- **Type-Safe**: Full TypeScript implementation with strict typing
-- **API-Ready**: Prepared for Amadeus API integration with easy mock/production switch
 
 ---
 
-## ✨ Features
+## Features
 
 | Feature                  | Description                                                       |
 | ------------------------ | ----------------------------------------------------------------- |
-| 🔍 **Smart Search**      | Airport autocomplete with 36+ European airports                   |
-| 📊 **Live Price Graph**  | Interactive Recharts visualization that updates with filters      |
-| 🎚️ **Advanced Filters**  | Filter by stops, price range, airlines, and sort options          |
-| ⚖️ **Flight Comparison** | Compare up to 3 flights side-by-side with highlighted best values |
-| ❤️ **Favorites System**  | Save flights to favorites with real-time sync across tabs         |
-| 🕐 **Search History**    | Recent searches with one-click repeat, responsive design          |
-| 📅 **Price Calendar**    | Visual price calendar with keyboard navigation and accessibility  |
-| 📱 **Responsive**        | Mobile-first design with adaptive layouts                         |
-| ⚡ **Fast**              | Optimized renders with Zustand selectors                          |
-| 🎨 **Minimalist UI**     | Clean design with neutral palette and emerald accent              |
-| ♿ **Accessible**        | ARIA labels, focus states, keyboard navigation, skip links        |
+| **Real Flight Data**     | Live prices from Google Flights via SerpApi                       |
+| **Airline Logos**        | Actual airline logos with fallback to styled initials             |
+| **Smart Search**         | Airport autocomplete with 140+ global airports                    |
+| **Live Price Graph**     | Interactive Recharts visualization with filter updates            |
+| **Advanced Filters**     | Filter by stops, price range, airlines, and sort options          |
+| **Flight Comparison**    | Compare up to 3 flights side-by-side                              |
+| **Favorites System**     | Save flights with real-time sync across tabs                      |
+| **Search History**       | Recent searches with one-click repeat                             |
+| **Price Calendar**       | Visual price calendar with hover popover details                  |
+| **Route Map**            | Animated flight paths with layover markers                        |
+| **Responsive**           | Mobile-first design with adaptive layouts                         |
+| **Accessible**           | ARIA labels, keyboard navigation, screen reader support           |
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Technology         | Purpose                              |
 | ------------------ | ------------------------------------ |
-| **Next.js 15**     | React framework with App Router      |
+| **Next.js 16**     | React framework with App Router      |
+| **React 19**       | UI library with latest features      |
 | **TypeScript**     | Type safety and developer experience |
 | **Tailwind CSS 4** | Utility-first styling                |
 | **Zustand**        | Lightweight state management         |
 | **Recharts**       | Composable chart library             |
-| **localStorage**   | Client-side persistence with sync    |
+| **SerpApi**        | Google Flights data provider         |
 | **Lucide React**   | Icon library                         |
 | **date-fns**       | Date manipulation                    |
 
 ---
 
-## 🏗️ Architecture
-
-### State Management Strategy
-
-We use a **hybrid approach** combining Zustand for global state and URL search params for shareable searches:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     URL SEARCH PARAMS                        │
-│              (origin, destination, dates)                    │
-│                 Shareable & Bookmarkable                     │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     ZUSTAND STORE                            │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐   │
-│  │  flights[]  │  │   filters    │  │ getFilteredFlights│   │
-│  │  (raw data) │  │  (user prefs)│  │    (computed)     │   │
-│  └──────┬──────┘  └──────┬───────┘  └─────────┬─────────┘   │
-│         │                │                    │              │
-│         └────────────────┴────────────────────┘              │
-└─────────────────────────────┬───────────────────────────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              │               │               │
-              ▼               ▼               ▼
-       ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │FlightList │   │PriceGraph │   │FilterPanel│
-       └───────────┘   └───────────┘   └───────────┘
-```
-
-### Why Zustand over Context API?
-
-1. **No re-render cascade** - Components only update when their selected state changes
-2. **Granular selectors** - `useFlightStore(state => state.filters)` only subscribes to filters
-3. **Less boilerplate** - No providers, reducers, or action types needed
-4. **Built-in computed values** - `getFilteredFlights()` derives state efficiently
-
----
-
-## 📁 Project Structure
-
-```
-src/
-├── app/
-│   ├── api/flights/          # API route for flight search
-│   │   └── route.ts          # GET endpoint (mock/Amadeus ready)
-│   ├── search/
-│   │   └── page.tsx          # Search results page
-│   ├── layout.tsx            # Root layout with fonts
-│   ├── page.tsx              # Landing page with hero
-│   └── globals.css           # Global styles
-│
-├── components/
-│   ├── ui/                   # Base UI components
-│   │   ├── Button.tsx        # Primary, secondary, ghost variants
-│   │   ├── Card.tsx          # Elevated, bordered variants
-│   │   ├── Input.tsx         # With label, icon, error states
-│   │   ├── Badge.tsx         # Status indicators
-│   │   └── Skeleton.tsx      # Loading placeholders
-│   │
-│   ├── search/               # Search functionality
-│   │   ├── SearchForm.tsx    # Main search form (hero/compact)
-│   │   └── AirportAutocomplete.tsx  # Airport search with keyboard nav
-│   │
-│   ├── results/              # Flight results display
-│   │   ├── FlightList.tsx    # List container with states
-│   │   ├── FlightCard.tsx    # Individual flight display
-│   │   └── FlightCardSkeleton.tsx   # Loading state
-│   │
-│   ├── filters/              # Filter components
-│   │   ├── FilterPanel.tsx   # Desktop sidebar + mobile slide-over
-│   │   ├── StopsFilter.tsx   # Non-stop, 1 stop, 2+ stops
-│   │   ├── PriceRangeFilter.tsx    # Dual-handle range slider
-│   │   ├── AirlineFilter.tsx # Multi-select airline filter
-│   │   └── SortFilter.tsx    # Cheapest, fastest, earliest
-│   │
-│   ├── comparison/
-│   │   └── ComparisonDrawer.tsx  # Side-by-side flight comparison
-│   │
-│   ├── charts/
-│   │   └── PriceGraph.tsx    # Recharts area chart
-│   │
-│   └── features/
-│       ├── FavoritesList.tsx     # Saved flights with filter apply
-│       ├── SearchHistory.tsx     # Recent searches (responsive)
-│       └── PriceCalendar.tsx     # Visual price calendar
-│
-├── stores/
-│   ├── useFlightStore.ts     # Main state: flights, filters, actions
-│   └── useUIStore.ts         # UI state: panels, modals
-│
-├── hooks/
-│   ├── useFlightSearch.ts    # Search trigger and loading state
-│   ├── useFilteredFlights.ts # Memoized filtered results
-│   └── useLocalStorage.ts    # Favorites & history with real-time sync
-│
-├── lib/
-│   ├── utils.ts              # Helpers: cn(), formatPrice(), etc.
-│   └── constants.ts          # Airlines, airports, defaults
-│
-├── mocks/
-│   ├── flights.ts            # 15 realistic mock flights
-│   └── airports.ts           # 36 European airports
-│
-└── types/
-    └── flight.ts             # TypeScript interfaces
-```
-
----
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
 - npm or yarn
+- SerpApi API key (get one at [serpapi.com](https://serpapi.com))
 
 ### Installation
 
@@ -186,11 +77,25 @@ cd flight-search-engine
 # Install dependencies
 npm install
 
+# Configure environment
+cp .env.example .env
+# Edit .env and add your SERPAPI_API_KEY
+
 # Start development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Environment Variables
+
+```env
+# Required: SerpApi key for Google Flights data
+SERPAPI_API_KEY=your_serpapi_key
+
+# Optional: Use mock data instead of real API
+NEXT_PUBLIC_USE_MOCK=false
+```
 
 ### Available Scripts
 
@@ -203,349 +108,170 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🔌 API Integration
+## API Integration
 
-The application is designed to work with mock data out of the box, with easy switching to the Amadeus API.
+### SerpApi (Google Flights)
 
-### Current Setup (Mock Data)
+The application uses SerpApi to fetch real-time flight data from Google Flights:
 
 ```typescript
-// src/app/api/flights/route.ts
-export async function GET(request: NextRequest) {
-  // Currently returns mock data
-  const flights = generateMockFlights(params);
-  return NextResponse.json({ data: flights });
+// src/lib/providers/serpapi-adapter.ts
+export class SerpApiFlightProvider implements FlightSearchProvider {
+  async search(params: SearchParams): Promise<Flight[]> {
+    const response = await fetch(`https://serpapi.com/search?engine=google_flights&...`);
+    return this.transformResponse(response);
+  }
 }
 ```
 
-### Switching to Amadeus API
+**Features:**
+- Real airline logos
+- Live pricing
+- Actual flight schedules
+- Multi-segment flights with layover details
 
-1. **Get API credentials** at [developers.amadeus.com](https://developers.amadeus.com)
+### Provider Pattern
 
-2. **Create `.env.local`**:
+The API uses an abstract provider pattern for easy switching:
 
-```env
-AMADEUS_API_KEY=your_api_key
-AMADEUS_API_SECRET=your_api_secret
-AMADEUS_ENVIRONMENT=test
+```typescript
+// Automatic provider detection
+const provider = createFlightProvider(); // Uses SerpApi if key available
+const flights = await provider.search(params);
 ```
-
-3. **Update the route** to use the Amadeus client (implementation guide in comments)
-
-### Mock Data Overview
-
-The mock system provides:
-
-- **15 flights** with realistic variety
-- **7 non-stop** flights (€35-€142)
-- **5 one-stop** flights (€65-€95)
-- **3 two-stop** flights (€48-€62)
-- **10 airlines**: Iberia, Vueling, Ryanair, easyJet, Lufthansa, Air France, British Airways, KLM, ITA Airways, Air Europa
 
 ---
 
-## 🎨 Key Components
+## Project Structure
 
-### SearchForm
-
-Supports two variants for different contexts:
-
-```tsx
-// Hero variant (landing page) - full width, prominent
-<SearchForm variant="hero" />
-
-// Compact variant (results page) - inline, smaller
-<SearchForm variant="compact" />
 ```
-
-### PriceGraph
-
-The chart automatically syncs with filters:
-
-```tsx
-function PriceGraph() {
-  // Uses the same filtered data as FlightList
-  const filteredFlights = useFilteredFlights();
-
-  // Groups by hour and calculates average price
-  const chartData = useMemo(() => {
-    // ... aggregation logic
-  }, [filteredFlights]);
-
-  return <AreaChart data={chartData} />;
-}
+src/
+├── app/
+│   ├── api/
+│   │   ├── airports/route.ts    # Airport search API
+│   │   └── flights/route.ts     # Flight search API (SerpApi)
+│   ├── search/page.tsx          # Search results page
+│   └── page.tsx                 # Landing page
+│
+├── components/
+│   ├── ui/                      # Base UI components
+│   ├── search/                  # Search functionality
+│   ├── results/                 # Flight results display
+│   ├── filters/                 # Filter components
+│   ├── charts/                  # Price graph
+│   ├── features/                # Feature components
+│   └── comparison/              # Flight comparison
+│
+├── lib/
+│   ├── providers/               # API providers (SerpApi)
+│   └── utils.ts                 # Helper functions
+│
+├── stores/                      # Zustand state stores
+├── hooks/                       # Custom React hooks
+├── types/                       # TypeScript interfaces
+└── mocks/                       # Mock data for development
 ```
-
-### FilterPanel
-
-Desktop and mobile versions from the same component:
-
-```tsx
-// Desktop - sidebar
-<aside className="hidden lg:block w-80">
-  <FilterPanel />
-</aside>
-
-// Mobile - slide-over panel
-<MobileFilterPanel />
-```
-
-### ComparisonDrawer
-
-Compare up to 3 flights side-by-side:
-
-```tsx
-// Selection in FlightCard
-const { toggleCompare, comparedFlights } = useFlightStore();
-const isSelected = comparedFlights.some((f) => f.id === flight.id);
-
-<Button
-  onClick={() => toggleCompare(flight)}
-  disabled={!isSelected && comparedFlights.length >= 3}
->
-  {isSelected ? "Remove" : "Compare"}
-</Button>;
-
-// Drawer shows when flights are selected
-{
-  comparedFlights.length > 0 && <ComparisonDrawer />;
-}
-```
-
-**Features:**
-
-- Floating "Compare" button appears when 1+ flights selected
-- Slide-up drawer with side-by-side comparison table
-- Highlights best price (green) and fastest duration
-- Easy add/remove with toggle buttons on each flight card
-
-### FavoritesList
-
-Save flights to favorites for quick access:
-
-```tsx
-// Add to favorites from FlightCard
-const { toggleFavorite, isFavorite } = useFavorites();
-
-<Button onClick={() => toggleFavorite(flight)}>
-  {isFavorite(flight.id) ? <HeartOff /> : <Heart />}
-</Button>
-
-// Display favorites on home page or filter panel
-<FavoritesList variant="compact" maxItems={3} />
-```
-
-**Features:**
-
-- **Real-time sync**: Changes sync instantly across tabs/components via custom events
-- **Filter application**: Clicking a favorite applies airline + stops filters automatically
-- **Responsive design**: Compact cards on mobile, detailed view on desktop
-- **Keyboard navigation**: Arrow keys, Enter to select, Delete to remove
-- **Hydration-safe**: Waits for client-side hydration before showing data
-
-### SearchHistory
-
-Track and repeat recent searches:
-
-```tsx
-// Automatically saves searches on the search results page
-const { addSearch, history } = useSearchHistory();
-
-// Display recent searches
-<SearchHistory variant="dropdown" maxItems={5} onSelect={handleClose} />
-```
-
-**Features:**
-
-- **Responsive variants**: Compact (mobile), full (desktop), dropdown (overlay)
-- **Time formatting**: Shows "2 hours ago", "Yesterday", etc.
-- **One-click repeat**: Click to repeat any previous search
-- **Keyboard accessible**: Full keyboard navigation support
-
-### PriceCalendar
-
-Visual calendar showing price trends:
-
-```tsx
-<PriceCalendar origin="MAD" destination="BCN" />
-```
-
-**Features:**
-
-- **Price visualization**: Color-coded days from green (cheap) to red (expensive)
-- **Stats bar**: Shows price range and average for the month
-- **Keyboard navigation**: Arrow keys for days, PageUp/PageDown for months
-- **TODAY badge**: Visual indicator for current date
-- **Full accessibility**: ARIA labels, screen reader announcements
 
 ---
 
-## 🎨 Design System
+## Key Components
 
-### Color Palette
+### Airline Logos
 
-The UI follows a minimalist approach with a single accent color:
+Real airline logos with intelligent fallbacks:
 
-| Color               | Usage                                       |
-| ------------------- | ------------------------------------------- |
-| **Neutral grays**   | Backgrounds, borders, text                  |
-| **Emerald**         | Primary accent (buttons, links, highlights) |
-| **Semantic colors** | Green for best price, red for errors        |
+```tsx
+<AirlineLogo airline={flight.airline} size={40} />
+// Shows actual logo from Google Flights
+// Falls back to styled initials with airline-specific colors
+```
 
-### Accessibility Features
+### Route Map
 
-- **Skip to main content** link for keyboard users
+Interactive flight path visualization:
+
+- 120+ airports with global coordinates
+- Animated flight path with plane icon
+- Stop/layover markers for multi-leg flights
+- Origin/destination markers with city info
+
+### Price Graph
+
+Dynamic chart that updates with filters:
+
+- Real-time filter integration
+- Best time to book indicator
+- Stats row (lowest, average, highest, trend)
+- Interactive tooltips
+
+### Price Calendar
+
+Hover-based price information:
+
+- Click date to see detailed popover
+- Price comparison vs average
+- Savings indicator
+- Keyboard navigation (arrows, PageUp/Down)
+
+### Favorites List
+
+Collapsible saved flights:
+
+- Expandable flight details
+- Quick search again button
+- Keyboard accessible
+- Real-time sync across tabs
+
+---
+
+## Accessibility
+
+- **Skip links** for keyboard users
 - **ARIA labels** on all interactive elements
 - **Focus-visible** states with ring indicators
-- **Semantic HTML** (main, nav, section, article)
-- **Keyboard navigation** for autocomplete and filters
+- **Keyboard navigation** for all components
+- **Screen reader** support with descriptive text
 - **Color contrast** meets WCAG AA standards
 
 ---
 
-## 📊 Data Flow
-
-```
-User Action                 Store Update              UI Response
-───────────────────────────────────────────────────────────────────
-1. Fill search form    →   setSearchParams()     →   Navigate to /search
-2. Page loads          →   search() fetches      →   setFlights()
-3. Click "Non-stop"    →   setFilters({stops})   →   List + Graph update
-4. Slide price range   →   setFilters({price})   →   List + Graph update
-5. Select airline      →   setFilters({airlines})→   List + Graph update
-```
-
-All filter changes trigger `getFilteredFlights()` which both `FlightList` and `PriceGraph` consume.
-
----
-
-## 📱 Responsive Behavior
-
-| Breakpoint        | Layout                                        |
-| ----------------- | --------------------------------------------- |
-| Mobile (<1024px)  | Single column, filter button opens slide-over |
-| Desktop (≥1024px) | Sidebar filters + main content area           |
-
-```tsx
-// Filter button only visible on mobile
-<Button className="lg:hidden" onClick={() => setFilterPanelOpen(true)}>
-  Filters
-</Button>
-
-// Sidebar only visible on desktop
-<aside className="hidden lg:block w-80">
-  <FilterPanel />
-</aside>
-```
-
----
-
-## 🧪 Testing the Application
+## Testing
 
 ### Manual Test Flow
 
-1. **Landing Page**
-   - Type "Madrid" → Select "Madrid (MAD)"
-   - Type "Barcelona" → Select "Barcelona (BCN)"
-   - Select a future date
-   - Click "Search Flights"
-
-2. **Results Page**
-   - Verify 15 flights display
-   - Verify price graph shows data points
-
-3. **Filter Testing**
-   - Click "Non-stop" → List reduces to 7 flights, graph updates
-   - Slide price to "Under €100" → Both update
-   - Select only "Ryanair" → Single flight shows
-
-4. **Flight Comparison**
-   - Click "Compare" on 2-3 flight cards
-   - Floating "Compare (X)" button appears at bottom
-   - Click to open comparison drawer
-   - Best price highlighted in green
-   - Click "Remove" to deselect flights
-
-5. **Responsive Testing**
-   - Resize to mobile width
-   - Click "Filters" button
-   - Verify slide-over panel works
-
-6. **Favorites Testing**
-   - Click heart icon on a flight card to add to favorites
-   - Verify favorite appears on home page "Saved Flights" section
-   - Open new tab → favorite syncs instantly
-   - Click favorite → navigates to search with filters applied
-   - Use keyboard: Arrow keys to navigate, Delete to remove
-
-7. **Search History Testing**
-   - Perform a search → verify it appears in history
-   - Check responsive: compact on mobile, detailed on desktop
-   - Click history item → repeats the search
-
-8. **Price Calendar Testing**
-   - Navigate to home page, scroll to price calendar
-   - Use arrow keys to navigate days
-   - Use PageUp/PageDown to change months
-   - Verify "TODAY" badge on current date
+1. **Search**: Select origin/destination, date, search
+2. **Results**: Verify flights display with real logos
+3. **Filters**: Toggle stops, slide price, select airline
+4. **Map**: Click flights to see route visualization
+5. **Comparison**: Add 2-3 flights, compare
+6. **Calendar**: Hover dates to see price popover
 
 ---
 
-## 🚢 Deployment
+## Deployment
 
 ### Vercel (Recommended)
 
 ```bash
-# Install Vercel CLI
 npm i -g vercel
-
-# Deploy
 vercel
 ```
 
 ### Environment Variables (Production)
 
 ```env
-AMADEUS_API_KEY=your_production_key
-AMADEUS_API_SECRET=your_production_secret
-AMADEUS_ENVIRONMENT=production
+SERPAPI_API_KEY=your_production_key
+NEXT_PUBLIC_USE_MOCK=false
 ```
 
 ---
 
-## 📈 Future Improvements
-
-- [ ] Add React Query for data fetching with caching
-- [ ] Add flight details modal with segments
-- [ ] Integrate real Amadeus API
-- [ ] Add unit tests with Jest/Vitest
-- [ ] Add E2E tests with Playwright
-- [ ] Implement user authentication for saved searches
-- [x] Flight comparison feature (compare up to 3 flights)
-- [x] Favorites system with real-time sync across tabs
-- [x] Search history with responsive design
-- [x] Price calendar with keyboard navigation
-
----
-
-## 📄 License
+## License
 
 MIT License - feel free to use this project for learning or as a starting point.
 
 ---
 
-## 👤 Author
-
-Built as a technical challenge demonstrating:
-
-- Modern React patterns (hooks, composition)
-- State management best practices
-- TypeScript proficiency
-- Responsive design implementation
-- Clean code architecture
-
----
-
 <p align="center">
-  <strong>FlightSearch</strong> - Find Your Perfect Flight ✈️
+  <strong>FlightSearch</strong> - Find Your Perfect Flight
 </p>

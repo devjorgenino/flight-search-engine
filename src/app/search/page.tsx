@@ -17,7 +17,7 @@ import { useUIStore } from "@/stores/useUIStore";
 import { useFlightStore } from "@/stores/useFlightStore";
 import { Plane, SlidersHorizontal, ArrowRight } from "lucide-react";
 import { SearchParams } from "@/types/flight";
-import { AIRPORTS } from "@/lib/constants";
+
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -85,18 +85,41 @@ function SearchContent() {
     if (addedToHistoryRef.current === historyKey) return;
     addedToHistoryRef.current = historyKey;
     
-    const originAirport = AIRPORTS.find(a => a.code === currentSearchParams.origin);
-    const destAirport = AIRPORTS.find(a => a.code === currentSearchParams.destination);
+    // Fetch airport names from API
+    const fetchAirportNames = async () => {
+      try {
+        const [originRes, destRes] = await Promise.all([
+          fetch(`/api/airports?code=${currentSearchParams.origin}`),
+          fetch(`/api/airports?code=${currentSearchParams.destination}`),
+        ]);
+        
+        const originData = await originRes.json();
+        const destData = await destRes.json();
+        
+        addSearch({
+          origin: currentSearchParams.origin,
+          originCity: originData.data?.city || currentSearchParams.origin,
+          destination: currentSearchParams.destination,
+          destinationCity: destData.data?.city || currentSearchParams.destination,
+          departureDate: currentSearchParams.departureDate,
+          returnDate: currentSearchParams.returnDate,
+          passengers: currentSearchParams.passengers,
+        });
+      } catch {
+        // Fallback: use codes as city names
+        addSearch({
+          origin: currentSearchParams.origin,
+          originCity: currentSearchParams.origin,
+          destination: currentSearchParams.destination,
+          destinationCity: currentSearchParams.destination,
+          departureDate: currentSearchParams.departureDate,
+          returnDate: currentSearchParams.returnDate,
+          passengers: currentSearchParams.passengers,
+        });
+      }
+    };
     
-    addSearch({
-      origin: currentSearchParams.origin,
-      originCity: originAirport?.city || currentSearchParams.origin,
-      destination: currentSearchParams.destination,
-      destinationCity: destAirport?.city || currentSearchParams.destination,
-      departureDate: currentSearchParams.departureDate,
-      returnDate: currentSearchParams.returnDate,
-      passengers: currentSearchParams.passengers,
-    });
+    fetchAirportNames();
   }, [currentSearchParams, addSearch, isHistoryHydrated]);
 
   // Retry handler
@@ -186,7 +209,7 @@ function SearchContent() {
                 <span className="font-medium text-neutral-900 dark:text-neutral-100">
                   {destination}
                 </span>
-                {dataSource === "amadeus" && (
+                {(dataSource === "amadeus" || dataSource === "serpapi") && (
                   <span className="ml-2 inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                     <span
                       className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"

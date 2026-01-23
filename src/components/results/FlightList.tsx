@@ -8,10 +8,13 @@ import { useFilteredFlights, useFlightStats } from '@/hooks/useFilteredFlights';
 import { Button } from '@/components/ui';
 import { Plane, SearchX, AlertCircle, RefreshCw, Info } from 'lucide-react';
 
+// Valid data sources for the flight search
+type FlightDataSource = 'serpapi' | 'amadeus' | 'mock' | 'cache' | null;
+
 interface FlightListProps {
   onSelectFlight?: (flight: Flight) => void;
   warning?: string | null;
-  dataSource?: 'amadeus' | 'mock' | 'cache' | null;
+  dataSource?: FlightDataSource;
   isRetryable?: boolean;
   onRetry?: () => void;
 }
@@ -146,7 +149,7 @@ export function FlightList({
             <span className="ml-2 text-xs text-neutral-400">(cached)</span>
           )}
         </p>
-        {dataSource === 'amadeus' && (
+        {(dataSource === 'amadeus' || dataSource === 'serpapi') && (
           <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
             Live prices

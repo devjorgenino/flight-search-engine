@@ -2,7 +2,7 @@
 
 import { FlightSegment } from '@/types/flight';
 import { formatTime, formatDuration, cn } from '@/lib/utils';
-import { Plane, Clock, MapPin, ChevronDown, ArrowRight } from 'lucide-react';
+import { Plane, Clock, MapPin, ChevronDown } from 'lucide-react';
 
 interface FlightStopsDetailProps {
   segments: FlightSegment[];
@@ -18,12 +18,11 @@ function calculateLayover(arrivalTime: string, departureTime: string): number {
   return Math.round((departure.getTime() - arrival.getTime()) / (1000 * 60));
 }
 
-function getTimeColorClass(time: string): string {
-  const hours = parseInt(time.split(':')[0], 10);
-  if (hours < 6 || hours >= 22) return 'text-red-600 dark:text-red-400';  // Early/late
-  if (hours < 12) return 'text-blue-600 dark:text-blue-400';         // Morning
-  if (hours < 18) return 'text-emerald-600 dark:text-emerald-400';     // Afternoon
-  return 'text-orange-600 dark:text-orange-400';                      // Evening
+// Get layover type for styling and messaging
+function getLayoverType(duration: number): 'short' | 'comfortable' | 'long' {
+  if (duration < 60) return 'short';
+  if (duration > 180) return 'long';
+  return 'comfortable';
 }
 
 export function FlightStopsDetail({ 
@@ -45,6 +44,9 @@ export function FlightStopsDetail({
     ),
   }));
 
+  // Calculate total layover time
+  const totalLayoverTime = layovers.reduce((acc, l) => acc + l.duration, 0);
+
   return (
     <div className="border-t border-neutral-100 dark:border-neutral-800">
       {/* Toggle Button */}
@@ -65,11 +67,12 @@ export function FlightStopsDetail({
           <span className="font-medium">
             {stops === 1 ? '1 stop' : `${stops} stops`}
           </span>
-          {layovers.length > 0 && (
-            <span className="ml-1 text-neutral-400 text-xs">
-              ({layovers.map(l => l.airport.code).join(', ')})
-            </span>
-          )}
+          <span className="text-neutral-400 text-xs">
+            ({layovers.map(l => l.airport.code).join(' · ')})
+          </span>
+          <span className="hidden sm:inline text-neutral-400 text-xs">
+            · {formatDuration(totalLayoverTime)} total layover
+          </span>
         </div>
         <ChevronDown 
           className={cn(
@@ -80,156 +83,158 @@ export function FlightStopsDetail({
         />
       </button>
 
-      {/* Expandable Detail */}
+      {/* Expandable Detail - uses grid for smooth height animation */}
       <div
         id="stops-detail"
         role="region"
         aria-label="Flight stops details"
         className={cn(
-          'overflow-hidden transition-all duration-300 ease-in-out',
-          isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+          'grid transition-all duration-300 ease-in-out',
+          isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
         )}
       >
-        <div className="px-4 pb-4">
-          {/* Timeline */}
-          <div className="space-y-6 py-4">
-            {segments.map((segment, index) => {
-              const isLast = index === segments.length - 1;
-              const layover = !isLast ? layovers[index] : null;
+        <div className="overflow-hidden">
+          <div className="px-4 pb-4">
+            {/* Journey Timeline - Compact horizontal layout */}
+            <div className="space-y-3 pt-2">
+              {segments.map((segment, index) => {
+                const isFirst = index === 0;
+                const isLast = index === segments.length - 1;
+                const layover = !isLast ? layovers[index] : null;
+                const layoverType = layover ? getLayoverType(layover.duration) : null;
 
-              return (
-                <div key={`segment-${index}`} className="relative">
-                  {/* Connection line */}
-                  {!isLast && (
+                return (
+                  <div key={`segment-${index}`}>
+                    {/* Segment Card */}
                     <div 
-                      className="absolute left-6 top-12 bottom-0 w-1 bg-gradient-to-b from-emerald-200 via-amber-200 to-emerald-200 dark:from-emerald-600 dark:via-amber-600 dark:to-emerald-600"
-                      aria-hidden="true"
-                    />
-                  )}
-
-                      {/* Station point */}
-                      <div className="relative flex items-start gap-4">
-                        {/* Icon */}
-                        <div className="relative z-10">
-                          <div 
-                            className={cn(
-                              'w-12 h-12 rounded-full flex items-center justify-center',
-                              'border-2 border-white dark:border-neutral-900 shadow-lg',
-                              'transition-all duration-200',
-                              isLast 
-                                ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-600' 
-                                : 'bg-gradient-to-br from-amber-500 to-amber-600 border-amber-600'
-                            )}
-                          >
-                            {isLast ? (
-                              <MapPin className="w-5 h-5 text-white" />
-                            ) : (
-                              <Plane className="w-5 h-5 text-white rotate-45" />
-                            )}
-                          </div>
+                      className={cn(
+                        "rounded-lg border p-3",
+                        "bg-white dark:bg-neutral-800/50",
+                        "border-neutral-200 dark:border-neutral-700"
+                      )}
+                      role="article"
+                      aria-label={`Flight segment ${index + 1}: ${segment.departure.airport.code} to ${segment.arrival.airport.code}`}
+                    >
+                      {/* Segment Header - Flight info */}
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-neutral-100 dark:border-neutral-700">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-neutral-100 dark:bg-neutral-700 rounded text-xs font-bold text-neutral-700 dark:text-neutral-200">
+                          {segment.flightNumber}
                         </div>
-
-                    {/* Station content */}
-                    <div className="flex-1 min-w-0 pb-6">
-                      {/* Time and Airport */}
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <div className="min-w-0">
-                          <div className="flex items-baseline gap-2 flex-wrap">
-                            <span 
-                              className={cn(
-                                'text-2xl font-bold tabular-nums',
-                                getTimeColorClass(isLast ? segment.arrival.time : segment.departure.time)
-                              )}
-                            >
-                              {formatTime(isLast ? segment.arrival.time : segment.departure.time)}
-                            </span>
-                            <span className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                              {isLast ? segment.arrival.airport.code : segment.departure.airport.code}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                              {isLast ? segment.arrival.airport.city : segment.departure.airport.city}
-                            </span>
-                            <span className="text-xs text-neutral-500">
-                              {isLast ? segment.arrival.airport.name : segment.departure.airport.name}
-                            </span>
-                          </div>
-                        </div>
+                        <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {segment.airline.name}
+                        </span>
+                        <span className="ml-auto flex items-center gap-1 text-xs text-neutral-500">
+                          <Clock className="w-3 h-3" aria-hidden="true" />
+                          {formatDuration(segment.duration)}
+                        </span>
                       </div>
 
-                      {/* Flight info card */}
-                      {!isLast && (
-                        <div className="bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-700 rounded-lg p-3 border border-neutral-200 dark:border-neutral-600 shadow-sm">
-                          <div className="flex items-center justify-between gap-3 text-sm">
-                            {/* Flight number and airline */}
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-neutral-900 rounded border border-neutral-200 dark:border-neutral-700">
-                                <span className="font-bold text-neutral-900 dark:text-neutral-100">
-                                  {segment.flightNumber}
-                                </span>
-                              </div>
-                              <span className="text-neutral-600 dark:text-neutral-400 font-medium">
-                                {segment.airline.name}
-                              </span>
-                            </div>
-
-                            {/* Duration with arrow */}
-                            <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400">
-                              <Clock className="w-4 h-4" aria-hidden="true" />
-                              <span className="font-medium">{formatDuration(segment.duration)}</span>
-                              <ArrowRight className="w-3 h-3" aria-hidden="true" />
-                            </div>
+                      {/* Departure and Arrival in row */}
+                      <div className="flex items-center gap-3">
+                        {/* Departure */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full flex-shrink-0",
+                              isFirst ? "bg-emerald-500" : "bg-neutral-400"
+                            )} />
+                            <span className="text-lg font-bold tabular-nums text-neutral-900 dark:text-neutral-100">
+                              {formatTime(segment.departure.time)}
+                            </span>
+                            <span className="font-semibold text-neutral-700 dark:text-neutral-200">
+                              {segment.departure.airport.code}
+                            </span>
                           </div>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 ml-4 truncate" title={segment.departure.airport.name}>
+                            {segment.departure.airport.city}
+                          </p>
                         </div>
-                      )}
 
-                      {/* Layover info */}
-                      {layover && (
-                        <div 
-                          className="relative mt-4 p-4 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border border-amber-200 dark:border-amber-800 rounded-lg shadow-sm"
-                          role="note"
-                          aria-label={`Layover of ${formatDuration(layover.duration)} at ${layover.airport.city}`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                                <span className="font-bold text-amber-800 dark:text-amber-200">
-                                  {formatDuration(layover.duration)} layover
-                                </span>
-                                <span className="text-amber-700 dark:text-amber-300">
-                                  at {layover.airport.city} ({layover.airport.code})
-                                </span>
-                              </div>
-                              
-                              {/* Contextual advice */}
-                              <div className="mt-2">
-                                {layover.duration > 180 && (
-                                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                                    <span className="font-medium">Long layover</span> — You may have time to explore airport facilities or grab a meal.
-                                  </p>
-                                )}
-                                {layover.duration < 60 && (
-                                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                                    <span className="font-medium">Short connection</span> — Proceed directly to your next gate to avoid missing your flight.
-                                  </p>
-                                )}
-                                {layover.duration >= 60 && layover.duration <= 180 && (
-                                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                                    <span className="font-medium">Comfortable layover</span> — You have enough time for shopping and refreshments.
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                        {/* Arrow */}
+                        <div className="flex-shrink-0 flex flex-col items-center px-2">
+                          <Plane className="w-4 h-4 text-neutral-400 rotate-90" aria-hidden="true" />
                         </div>
-                      )}
+
+                        {/* Arrival */}
+                        <div className="flex-1 min-w-0 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="font-semibold text-neutral-700 dark:text-neutral-200">
+                              {segment.arrival.airport.code}
+                            </span>
+                            <span className="text-lg font-bold tabular-nums text-neutral-900 dark:text-neutral-100">
+                              {formatTime(segment.arrival.time)}
+                            </span>
+                            <div className={cn(
+                              "w-2 h-2 rounded-full flex-shrink-0",
+                              isLast ? "bg-emerald-500" : "bg-neutral-400"
+                            )} />
+                          </div>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mr-4 truncate" title={segment.arrival.airport.name}>
+                            {segment.arrival.airport.city}
+                          </p>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Layover indicator between segments */}
+                    {layover && (
+                      <div 
+                        className="flex items-center gap-3 py-2 px-3"
+                        role="note"
+                        aria-label={`Layover of ${formatDuration(layover.duration)} at ${layover.airport.city}`}
+                      >
+                        {/* Connector line */}
+                        <div className="flex flex-col items-center w-4 flex-shrink-0">
+                          <div className="w-px h-3 bg-neutral-300 dark:bg-neutral-600" />
+                          <div className={cn(
+                            "w-3 h-3 rounded-full border-2 flex-shrink-0",
+                            layoverType === 'short' 
+                              ? "border-amber-400 bg-amber-50 dark:bg-amber-900/30" 
+                              : layoverType === 'long'
+                                ? "border-blue-400 bg-blue-50 dark:bg-blue-900/30"
+                                : "border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30"
+                          )} />
+                          <div className="w-px h-3 bg-neutral-300 dark:bg-neutral-600" />
+                        </div>
+
+                        {/* Layover info */}
+                        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+                          <span className={cn(
+                            "font-semibold",
+                            layoverType === 'short' 
+                              ? "text-amber-600 dark:text-amber-400" 
+                              : layoverType === 'long'
+                                ? "text-blue-600 dark:text-blue-400"
+                                : "text-emerald-600 dark:text-emerald-400"
+                          )}>
+                            {formatDuration(layover.duration)}
+                          </span>
+                          <span className="text-neutral-500 dark:text-neutral-400">
+                            layover in {layover.airport.city}
+                          </span>
+                          {layoverType === 'short' && (
+                            <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                              · Tight connection
+                            </span>
+                          )}
+                          {layoverType === 'long' && (
+                            <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                              · Time to explore
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
+            {/* Screen reader summary */}
+            <div className="sr-only">
+              Flight has {stops} {stops === 1 ? 'stop' : 'stops'} with total layover time of {formatDuration(totalLayoverTime)}.
+              Stops at: {layovers.map(l => `${l.airport.city} for ${formatDuration(l.duration)}`).join(', ')}.
+            </div>
           </div>
         </div>
       </div>

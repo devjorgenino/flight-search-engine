@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { Flight } from '@/types/flight';
 import { Card, Badge, Button } from '@/components/ui';
 import { FlightStopsDetail } from './FlightStopsDetail';
@@ -9,6 +10,88 @@ import { formatDuration, formatTime, formatPrice, getStopsLabel } from '@/lib/ut
 import { Clock, Check, Scale, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFlightStore } from '@/stores/useFlightStore';
+
+// Airline logo component with fallback to initials - Improved UI/UX/Accessibility
+function AirlineLogo({ airline, size = 40 }: { airline: { code: string; name: string; logo?: string }; size?: number }) {
+  const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Reset states if logo URL changes
+  useEffect(() => {
+    setHasError(false);
+    setIsLoading(true);
+  }, [airline.logo]);
+  
+  const showFallback = !airline.logo || hasError;
+  
+  // Generate a consistent color based on airline code for fallback
+  const getAirlineColor = (code: string) => {
+    const colors = [
+      'from-blue-500 to-blue-600',
+      'from-indigo-500 to-indigo-600', 
+      'from-violet-500 to-violet-600',
+      'from-sky-500 to-sky-600',
+      'from-teal-500 to-teal-600',
+      'from-cyan-500 to-cyan-600',
+    ];
+    const index = code.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
+  
+  if (showFallback) {
+    return (
+      <div 
+        className={cn(
+          "rounded-xl flex items-center justify-center shadow-sm",
+          "bg-gradient-to-br",
+          getAirlineColor(airline.code),
+          "ring-1 ring-black/5 dark:ring-white/10"
+        )}
+        style={{ width: size, height: size }}
+        role="img"
+        aria-label={`${airline.name} logo`}
+      >
+        <span 
+          className="font-bold text-white tracking-tight"
+          style={{ fontSize: size * 0.3 }}
+        >
+          {airline.code.slice(0, 2)}
+        </span>
+      </div>
+    );
+  }
+  
+  return (
+    <div 
+      className={cn(
+        "relative rounded-xl overflow-hidden bg-white shadow-sm flex items-center justify-center",
+        "ring-1 ring-neutral-200 dark:ring-neutral-700",
+        "transition-all duration-200"
+      )}
+      style={{ width: size, height: size }}
+    >
+      {isLoading && (
+        <div 
+          className="absolute inset-0 bg-neutral-100 dark:bg-neutral-800 animate-pulse"
+          aria-hidden="true"
+        />
+      )}
+      <Image
+        src={airline.logo as string}
+        alt={`${airline.name} logo`}
+        width={size - 6}
+        height={size - 6}
+        className={cn(
+          "object-contain transition-opacity duration-200",
+          isLoading ? "opacity-0" : "opacity-100"
+        )}
+        onLoad={() => setIsLoading(false)}
+        onError={() => setHasError(true)}
+        unoptimized // External URLs from Google Flights
+      />
+    </div>
+  );
+}
 
 interface FlightCardProps {
   flight: Flight;
@@ -144,16 +227,8 @@ export function FlightCard({ flight, onSelect, showCountdown = false, variant = 
           <div className="flex items-center gap-4">
             {/* Airline Logo & Name */}
             <div className="flex items-center gap-2.5 min-w-[100px] md:min-w-[120px] flex-shrink-0">
-              {/* Circular airline badge */}
-              <div 
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-neutral-800"
-                role="img"
-                aria-label={`${flight.airline.name} logo`}
-              >
-                <span className="text-xs font-bold text-white tracking-tight">
-                  {flight.airline.code}
-                </span>
-              </div>
+              {/* Airline logo with fallback to initials */}
+              <AirlineLogo airline={flight.airline} size={40} />
               {/* Airline name - visible on all screens */}
               <div className="flex-1 min-w-0">
                 <p 
@@ -213,7 +288,7 @@ export function FlightCard({ flight, onSelect, showCountdown = false, variant = 
                     'text-[10px] md:text-xs mt-1 font-medium',
                     flight.stops === 0 
                       ? 'text-emerald-600 dark:text-emerald-400' 
-                      : 'text-amber-600 dark:text-amber-400 hover:underline cursor-pointer'
+                      : 'text-amber-600 dark:text-amber-500 hover:underline cursor-pointer'
                   )}
                   disabled={flight.stops === 0}
                   aria-expanded={flight.stops > 0 ? isStopsExpanded : undefined}
@@ -239,7 +314,7 @@ export function FlightCard({ flight, onSelect, showCountdown = false, variant = 
                 {price}
               </p>
               {flight.seatsLeft && flight.seatsLeft <= 5 && (
-                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
                   {flight.seatsLeft} seats left
                 </p>
               )}

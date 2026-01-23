@@ -1,8 +1,90 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useFlightStore } from "@/stores/useFlightStore";
 import { cn } from "@/lib/utils";
 import { Check, Plane } from "lucide-react";
+
+// Airline logo component for filter
+function AirlineFilterLogo({ 
+  airline, 
+  selected,
+  showAll 
+}: { 
+  airline: { code: string; name: string; logo?: string }; 
+  selected: boolean;
+  showAll: boolean;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    setHasError(false);
+    setIsLoading(true);
+  }, [airline.logo]);
+  
+  const showFallback = !airline.logo || hasError;
+  
+  // Generate consistent colors based on airline code
+  const getAirlineColor = (code: string) => {
+    const colors = [
+      'from-blue-500 to-blue-600',
+      'from-indigo-500 to-indigo-600', 
+      'from-violet-500 to-violet-600',
+      'from-sky-500 to-sky-600',
+      'from-teal-500 to-teal-600',
+    ];
+    const index = code.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
+  
+  if (showFallback) {
+    return (
+      <div 
+        className={cn(
+          "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all",
+          "bg-gradient-to-br",
+          getAirlineColor(airline.code),
+          selected && "ring-2 ring-emerald-500 ring-offset-1"
+        )}
+        aria-hidden="true"
+      >
+        <span className="text-[10px] font-bold text-white">
+          {airline.code.slice(0, 2)}
+        </span>
+      </div>
+    );
+  }
+  
+  return (
+    <div 
+      className={cn(
+        "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all",
+        "bg-white ring-1 ring-neutral-200 dark:ring-neutral-700 overflow-hidden",
+        selected && "ring-2 ring-emerald-500"
+      )}
+      aria-hidden="true"
+    >
+      {isLoading && (
+        <div className="absolute inset-0 bg-neutral-100 dark:bg-neutral-800 animate-pulse rounded-lg" />
+      )}
+      <Image
+        src={airline.logo as string}
+        alt=""
+        width={28}
+        height={28}
+        className={cn(
+          "object-contain transition-opacity",
+          isLoading ? "opacity-0" : "opacity-100"
+        )}
+        onLoad={() => setIsLoading(false)}
+        onError={() => setHasError(true)}
+        unoptimized
+      />
+    </div>
+  );
+}
 
 export function AirlineFilter() {
   const filters = useFlightStore((state) => state.filters);
@@ -105,27 +187,12 @@ export function AirlineFilter() {
                 )}
               </div>
 
-              {/* Airline logo placeholder */}
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors",
-                  selected || showAll
-                    ? "bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-700 dark:to-neutral-800"
-                    : "bg-neutral-100 dark:bg-neutral-800"
-                )}
-                aria-hidden="true"
-              >
-                <span 
-                  className={cn(
-                    "text-xs font-bold transition-colors",
-                    selected
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-neutral-500 dark:text-neutral-400"
-                  )}
-                >
-                  {airline.code}
-                </span>
-              </div>
+              {/* Airline logo */}
+              <AirlineFilterLogo 
+                airline={airline} 
+                selected={selected}
+                showAll={showAll}
+              />
 
               {/* Name */}
               <span 

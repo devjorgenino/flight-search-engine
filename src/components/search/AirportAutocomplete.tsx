@@ -2,11 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
-import { searchAirports } from "@/mocks/airports";
+import { useAirportSearch } from "@/hooks/useAirportSearch";
 import { Airport } from "@/types/flight";
-import { MapPin, Plane, Search, X, TrendingUp } from "lucide-react";
+import { MapPin, Plane, Search, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AIRPORTS } from "@/lib/constants";
 
 // Shared input styles - exported for consistency
 export const INPUT_HEIGHT = "h-[52px]";
@@ -21,9 +20,6 @@ interface AirportAutocompleteProps {
   error?: string;
 }
 
-// Popular airports for quick selection
-const POPULAR_AIRPORTS = ["MAD", "BCN", "LHR", "CDG", "FCO", "AMS"];
-
 export function AirportAutocomplete({
   value,
   onChange,
@@ -36,7 +32,6 @@ export function AirportAutocomplete({
   const [query, setQuery] = useState(
     value ? `${value.city} (${value.code})` : ""
   );
-  const [results, setResults] = useState<Airport[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
@@ -46,6 +41,18 @@ export function AirportAutocomplete({
     width: 0,
   });
 
+  // Use the API-based airport search hook
+  const { 
+    results, 
+    isLoading, 
+    search, 
+    clearResults 
+  } = useAirportSearch({ 
+    excludeCode,
+    debounceMs: 150,
+    limit: 8,
+  });
+
   const isBrowser = typeof window !== "undefined";
 
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -53,10 +60,6 @@ export function AirportAutocomplete({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
   const inputId = useId();
-
-  const popularAirports = AIRPORTS.filter(
-    (a) => POPULAR_AIRPORTS.includes(a.code) && a.code !== excludeCode
-  );
 
   useEffect(() => {
     if (isOpen && wrapperRef.current) {
@@ -126,15 +129,12 @@ export function AirportAutocomplete({
       setQuery(newQuery);
 
       if (newQuery.length >= 2) {
-        let airports = searchAirports(newQuery);
-        if (excludeCode) {
-          airports = airports.filter((a) => a.code !== excludeCode);
-        }
-        setResults(airports);
-        setIsOpen(airports.length > 0);
+        // Use the API search
+        search(newQuery);
+        setIsOpen(true);
         setHighlightedIndex(0);
       } else {
-        setResults([]);
+        clearResults();
         setIsOpen(newQuery.length === 0 && isFocused);
       }
 
@@ -142,7 +142,7 @@ export function AirportAutocomplete({
         onChange(null);
       }
     },
-    [excludeCode, onChange, value, isFocused]
+    [search, clearResults, onChange, value, isFocused]
   );
 
   const handleSelect = useCallback(
@@ -150,9 +150,10 @@ export function AirportAutocomplete({
       onChange(airport);
       setQuery(`${airport.city} (${airport.code})`);
       setIsOpen(false);
+      clearResults();
       inputRef.current?.blur();
     },
-    [onChange]
+    [onChange, clearResults]
   );
 
   const handleClear = useCallback(
@@ -161,10 +162,10 @@ export function AirportAutocomplete({
       e.stopPropagation();
       onChange(null);
       setQuery("");
-      setResults([]);
+      clearResults();
       inputRef.current?.focus();
     },
-    [onChange]
+    [onChange, clearResults]
   );
 
   const handleFocus = () => {
@@ -186,8 +187,7 @@ export function AirportAutocomplete({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const itemCount =
-        results.length > 0 ? results.length : popularAirports.length;
+      const itemCount = results.length;
 
       if (!isOpen) {
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -208,9 +208,8 @@ export function AirportAutocomplete({
           break;
         case "Enter":
           e.preventDefault();
-          const airports = results.length > 0 ? results : popularAirports;
-          if (airports[highlightedIndex]) {
-            handleSelect(airports[highlightedIndex]);
+          if (results[highlightedIndex]) {
+            handleSelect(results[highlightedIndex]);
           }
           break;
         case "Escape":
@@ -222,7 +221,7 @@ export function AirportAutocomplete({
           break;
       }
     },
-    [isOpen, results, popularAirports, highlightedIndex, handleSelect]
+    [isOpen, results, highlightedIndex, handleSelect]
   );
 
   const isOrigin = type === "origin";
@@ -247,7 +246,16 @@ export function AirportAutocomplete({
         "animate-in fade-in slide-in-from-top-2 duration-200"
       )}
     >
-      {results.length > 0 ? (
+      {/* Loading state */}
+      {isLoading && (
+        <div className="px-4 py-8 flex items-center justify-center gap-2 text-neutral-500">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Searching airports...</span>
+        </div>
+      )}
+
+      {/* Search results */}
+      {!isLoading && results.length > 0 && (
         <>
           <div className="px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
             <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -271,31 +279,24 @@ export function AirportAutocomplete({
             ))}
           </ul>
         </>
-      ) : (
-        <>
-          <div className="px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
-            <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-              <TrendingUp className="w-3 h-3" />
-              Popular
-            </p>
-          </div>
-          <ul
-            id={listboxId}
-            role="listbox"
-            className="py-1"
-            aria-label="Popular airports"
-          >
-            {popularAirports.map((airport, index) => (
-              <AirportOption
-                key={airport.code}
-                airport={airport}
-                isHighlighted={index === highlightedIndex}
-                onSelect={handleSelect}
-                isPopular
-              />
-            ))}
-          </ul>
-        </>
+      )}
+
+      {/* No results message */}
+      {!isLoading && query.length >= 2 && results.length === 0 && (
+        <div className="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400">
+          <Search className="w-8 h-8 mx-auto mb-2 text-neutral-300" />
+          <p className="text-sm">No airports found for "{query}"</p>
+          <p className="text-xs mt-1">Try a different city or airport code</p>
+        </div>
+      )}
+
+      {/* Empty state - prompt to type */}
+      {!isLoading && query.length < 2 && (
+        <div className="px-4 py-6 text-center text-neutral-500 dark:text-neutral-400">
+          <Search className="w-6 h-6 mx-auto mb-2 text-neutral-300" />
+          <p className="text-sm">Type at least 2 characters to search</p>
+          <p className="text-xs mt-1 text-neutral-400">Search by city, airport name or code</p>
+        </div>
       )}
 
       <div className="px-3 py-2 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
@@ -395,16 +396,20 @@ export function AirportAutocomplete({
           aria-expanded={isOpen}
           aria-controls={listboxId}
           aria-activedescendant={
-            isOpen &&
-            (results.length > 0
-              ? results[highlightedIndex]
-              : popularAirports[highlightedIndex])
-              ? `option-${(results.length > 0 ? results[highlightedIndex] : popularAirports[highlightedIndex])?.code}`
+            isOpen && results[highlightedIndex]
+              ? `option-${results[highlightedIndex]?.code}`
               : undefined
           }
         />
 
-        {hasValue && (
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex items-center justify-center w-10 h-10 mr-1 flex-shrink-0">
+            <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
+          </div>
+        )}
+
+        {hasValue && !isLoading && (
           <button
             type="button"
             onClick={handleClear}
@@ -416,7 +421,7 @@ export function AirportAutocomplete({
           </button>
         )}
 
-        {!hasValue && isFocused && (
+        {!hasValue && !isLoading && isFocused && (
           <div className="flex items-center justify-center w-10 h-10 mr-1 flex-shrink-0">
             <Search className="w-4 h-4 text-emerald-500 animate-pulse" />
           </div>
@@ -446,12 +451,10 @@ function AirportOption({
   airport,
   isHighlighted,
   onSelect,
-  isPopular = false,
 }: {
   airport: Airport;
   isHighlighted: boolean;
   onSelect: (airport: Airport) => void;
-  isPopular?: boolean;
 }) {
   const optionRef = useRef<HTMLLIElement>(null);
 
@@ -489,16 +492,9 @@ function AirportOption({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
-              {airport.city}
-            </span>
-            {isPopular && (
-              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
-                Popular
-              </span>
-            )}
-          </div>
+          <span className="font-medium text-neutral-900 dark:text-neutral-100 truncate block">
+            {airport.city}
+          </span>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
             {airport.name}
           </p>

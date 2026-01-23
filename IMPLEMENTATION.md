@@ -2,34 +2,34 @@
 
 ## Overview
 
-FlightSearch is a flight search engine built as a technical challenge, demonstrating modern React patterns, TypeScript proficiency, and UX best practices. This document explains the implementation decisions and architecture.
+FlightSearch is a modern flight search engine built as a technical challenge, demonstrating React 19 patterns, TypeScript proficiency, and UX best practices. The application uses **SerpApi (Google Flights API)** to fetch real flight data.
 
 ---
 
 ## Table of Contents
 
 1. [Architecture Decisions](#architecture-decisions)
-2. [State Management](#state-management)
-3. [API Integration](#api-integration)
-4. [UI/UX Design](#uiux-design)
-5. [Accessibility](#accessibility)
-6. [Performance Optimizations](#performance-optimizations)
-7. [Key Components](#key-components)
-8. [Data Flow](#data-flow)
-9. [LocalStorage Sync System](#localstorage-sync-system)
-10. [Favorites System](#favorites-system)
-11. [Responsive Component Design](#responsive-component-design)
+2. [Provider Pattern Architecture](#provider-pattern-architecture)
+3. [State Management](#state-management)
+4. [API Integration](#api-integration)
+5. [UI/UX Design](#uiux-design)
+6. [Key Components](#key-components)
+7. [Accessibility](#accessibility)
+8. [Performance Optimizations](#performance-optimizations)
+9. [Data Flow](#data-flow)
+10. [LocalStorage Sync System](#localstorage-sync-system)
 
 ---
 
 ## Architecture Decisions
 
-### Why Next.js 15 with App Router?
+### Why Next.js 16 with App Router?
 
 - **Server Components**: Reduces client bundle size for static content
-- **API Routes**: Built-in backend for Amadeus API proxy (hides credentials)
+- **API Routes**: Built-in backend for API proxy (hides credentials)
 - **Built-in optimizations**: Image optimization, code splitting, prefetching
 - **TypeScript first**: Excellent DX with strict type checking
+- **React 19**: Latest React features including improved Suspense
 
 ### Why Zustand over Redux/Context?
 
@@ -56,6 +56,69 @@ const comparisonIds = useFlightStore((state) => state.comparisonIds);
 
 ---
 
+## Provider Pattern Architecture
+
+### Why a Provider Pattern?
+
+The application uses an abstract provider pattern that allows swapping flight data sources without changing application logic:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    FlightProvider                         │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │              Abstract Interface                     │  │
+│  │  searchFlights(params): Promise<Flight[]>          │  │
+│  │  getAirports(query): Promise<Airport[]>            │  │
+│  └────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          │                   │                   │
+          ▼                   ▼                   ▼
+   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+   │   SerpApi   │    │    Mock     │    │   Future    │
+   │   Adapter   │    │  Provider   │    │  Provider   │
+   └─────────────┘    └─────────────┘    └─────────────┘
+```
+
+### Provider Implementation
+
+```typescript
+// src/lib/providers/types.ts
+export interface FlightProvider {
+  name: string;
+  searchFlights(params: SearchParams): Promise<FlightSearchResult>;
+}
+
+// src/lib/providers/serpapi-adapter.ts
+export class SerpApiProvider implements FlightProvider {
+  name = "SerpApi (Google Flights)";
+
+  async searchFlights(params: SearchParams): Promise<FlightSearchResult> {
+    // Transform params to SerpApi format
+    // Call Google Flights via SerpApi
+    // Transform response to our Flight type
+  }
+}
+
+// src/lib/providers/index.ts
+export function getFlightProvider(): FlightProvider {
+  if (process.env.NEXT_PUBLIC_USE_MOCK === "true") {
+    return new MockProvider();
+  }
+  return new SerpApiProvider();
+}
+```
+
+### Benefits
+
+1. **Testability**: Easy to swap mock provider for tests
+2. **Flexibility**: Can add new providers (Skyscanner, Kiwi, etc.)
+3. **Separation of concerns**: API logic isolated from UI
+4. **Environment-based**: Mock in development, real API in production
+
+---
+
 ## State Management
 
 ### Store Structure
@@ -71,13 +134,14 @@ FlightStore
 │   ├── isLoading            # API request in progress
 │   ├── error                # Error message if any
 │   ├── comparisonIds[]      # Selected flight IDs for comparison
+│   ├── hoveredFlightId      # Flight being hovered (for map)
+│   ├── selectedMapFlightId  # Flight selected to show on map
 │   ├── isComparisonOpen     # Drawer visibility
-│   ├── selectedFlight       # Flight chosen for booking
-│   └── isBookingConfirmationOpen
+│   └── selectedFlight       # Flight chosen for booking
 │
 └── Computed (getters)
     ├── getFilteredFlights() # Applies all filters + sorting
-    ├── getAvailableAirlines() # Unique airlines from results
+    ├── getAvailableAirlines() # Unique airlines with logos
     ├── getPriceRange()       # Min/max for slider
     └── getComparisonFlights() # Resolved flight objects
 ```
@@ -94,6 +158,7 @@ getFilteredFlights: () => {
     .filter(/* stops */)
     .filter(/* price */)
     .filter(/* airlines */)
+    .filter(/* departure time */)
     .sort(/* by selected criteria */);
 };
 ```
@@ -108,12 +173,12 @@ getFilteredFlights: () => {
 
 ## API Integration
 
-### Amadeus API Architecture
+### SerpApi Architecture
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   Client    │────▶│  /api/flights │────▶│  Amadeus    │
-│  (Browser)  │◀────│   (Next.js)   │◀────│    API      │
+│   Client    │────▶│  /api/flights │────▶│   SerpApi   │
+│  (Browser)  │◀────│   (Next.js)   │◀────│   (Google)  │
 └─────────────┘     └──────────────┘     └─────────────┘
                            │
                            ▼
@@ -123,62 +188,68 @@ getFilteredFlights: () => {
                     └──────────────┘
 ```
 
+### Why SerpApi (Google Flights)?
+
+1. **Real data**: Actual flight prices from Google Flights
+2. **Rich information**: Airline logos, layover details, carbon emissions
+3. **Reliable**: Google's flight data is comprehensive
+4. **Simple API**: Easy to integrate, good documentation
+
 ### Why Server-Side Proxy?
 
 1. **Security**: API keys never exposed to client
 2. **CORS**: Avoids cross-origin issues
 3. **Caching**: Server-side cache reduces API calls
-4. **Transform**: Convert Amadeus format to our types
-
-### Performance Optimizations
-
-```typescript
-// src/app/api/flights/route.ts
-
-// 1. In-memory cache with 5-minute TTL
-const cache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
-
-// 2. Limited results for faster response
-max: 25, // Instead of default 250
-
-// 3. Fallback to mock data on API errors
-if (parsedError.type === 'RATE_LIMITED') {
-  return generateMockFlights(params); // Graceful degradation
-}
-```
+4. **Transform**: Convert SerpApi format to our types
 
 ### Data Transformation
 
-Amadeus returns complex nested structures. We transform to a clean interface:
+SerpApi returns Google Flights data that we transform:
 
 ```typescript
-// Amadeus format (abbreviated)
+// SerpApi response (abbreviated)
 {
-  itineraries: [{
-    segments: [{
-      departure: { iataCode: "MAD", at: "2024-01-27T07:30:00" },
-      arrival: { iataCode: "BCN", at: "2024-01-27T08:55:00" },
-      carrierCode: "IB",
-      number: "3214"
-    }]
-  }],
-  price: { grandTotal: "89.50", currency: "EUR" }
+  best_flights: [{
+    flights: [{
+      departure_airport: { id: "MAD", name: "Madrid", time: "07:30" },
+      arrival_airport: { id: "BCN", name: "Barcelona", time: "08:55" },
+      airline: "Iberia",
+      airline_logo: "https://...",
+      flight_number: "IB 3214",
+      duration: 85
+    }],
+    price: 89,
+    carbon_emissions: { this_flight: 45000 }
+  }]
 }
 
 // Our format (clean, typed)
 {
-  id: "1",
-  airline: { code: "IB", name: "Iberia" },
-  origin: { code: "MAD", city: "Madrid" },
-  destination: { code: "BCN", city: "Barcelona" },
+  id: "serpapi-0",
+  airline: { code: "IB", name: "Iberia", logo: "https://..." },
+  origin: { code: "MAD", city: "Madrid", name: "Madrid-Barajas" },
+  destination: { code: "BCN", city: "Barcelona", name: "El Prat" },
   departureTime: "2024-01-27T07:30:00",
   arrivalTime: "2024-01-27T08:55:00",
   duration: 85,
   stops: 0,
   segments: [/* detailed segment info */],
-  price: { amount: 89.50, currency: "EUR" }
+  price: { amount: 89, currency: "EUR" },
+  carbonEmissions: 45
 }
+```
+
+### Airport Database
+
+The application includes 140+ major airports with coordinates for the interactive map:
+
+```typescript
+// src/app/api/airports/route.ts
+const AIRPORTS = [
+  { code: "MAD", name: "Madrid-Barajas", city: "Madrid", country: "Spain", lat: 40.4719, lng: -3.5626 },
+  { code: "BCN", name: "El Prat", city: "Barcelona", country: "Spain", lat: 41.2974, lng: 2.0833 },
+  // ... 140+ airports
+];
 ```
 
 ---
@@ -198,7 +269,7 @@ Amadeus returns complex nested structures. We transform to a clean interface:
 /* Semantic colors */
 --accent: emerald-500; /* Primary actions */
 --success: emerald-600; /* Best price, confirmation */
---warning: amber-500; /* Stops, limited seats */
+--warning: amber-500; /* Stops indicator */
 --error: red-500; /* Errors */
 
 /* Neutral scale for content */
@@ -207,45 +278,108 @@ Amadeus returns complex nested structures. We transform to a clean interface:
 --border: neutral-200;
 ```
 
-### Flight Card Design Decisions
+### Flight Card Design
 
 | Element | Decision             | Rationale                      |
 | ------- | -------------------- | ------------------------------ |
 | Price   | Large, right-aligned | Most important decision factor |
 | Time    | Tabular nums font    | Easy scanning, aligned numbers |
 | Stops   | Color-coded badge    | Quick visual distinction       |
-| Airline | Logo/code box        | Brand recognition              |
+| Airline | Logo from API        | Brand recognition              |
 | Actions | Icon buttons + text  | Accessible on mobile           |
 
-### Stops Detail Component
+### Interactive Route Map
 
-For flights with stops, users can expand to see:
+The RouteMap component shows:
+
+- **Flight path**: Curved arc from origin to destination
+- **Stop markers**: Orange dots for layover airports
+- **120+ airports**: Global coverage with proper coordinates
+- **Hover sync**: Card hover highlights route on map
+- **Click to select**: Click card to pin route on map
+
+---
+
+## Key Components
+
+### Component Hierarchy
 
 ```
-MAD ─────●───────●───── BCN
-     ┌──────────────────────┐
-     │  1 stop (PMI)        │  ← Click to expand
-     └──────────────────────┘
-         ▼ expanded
-     ┌──────────────────────────────────────┐
-     │ ● 07:30 MAD - Adolfo Suárez          │
-     │ │ UX7701 · 1h 20m · Air Europa       │
-     │ ○ 08:50 PMI - Palma de Mallorca      │
-     │                                       │
-     │ ⏱ 2h 15m layover in Palma            │
-     │                                       │
-     │ ○ 11:05 PMI                          │
-     │ │ UX7702 · 55m · Air Europa          │
-     │ ● 12:00 BCN - El Prat                │
-     └──────────────────────────────────────┘
+SearchPage
+├── Header (sticky)
+│   └── Logo, Route info, Filter button (mobile)
+├── SearchForm (compact)
+├── Main
+│   ├── FilterPanel (desktop sidebar)
+│   │   ├── SortOptions
+│   │   ├── StopsFilter
+│   │   ├── PriceRangeSlider
+│   │   ├── DepartureTimeFilter
+│   │   ├── AirlineFilter (with logos)
+│   │   └── FavoritesList
+│   ├── RouteMap (interactive Leaflet map)
+│   ├── PriceGraph (Recharts bar chart)
+│   └── FlightList
+│       └── FlightCard[]
+│           └── FlightStopsDetail (expandable)
+├── MobileFilterPanel (slide-over)
+├── ComparisonDrawer (bottom sheet)
+└── BookingConfirmation (modal)
+
+HomePage
+├── SearchForm (hero variant)
+├── PriceCalendar (with popover tooltips)
+├── SearchHistory
+└── FavoritesList
 ```
 
-**UX Decisions**:
+### FlightCard
 
-- Timeline visualization for clear journey understanding
-- Layover warnings (short < 60min, long > 3hrs)
-- Airport names, not just codes
-- Smooth expand/collapse animation
+The core result component with:
+
+- Airline logo from SerpApi with fallback to code initials
+- Time/duration visualization with visual flight path
+- Stops indicator (clickable to expand details)
+- Price with scarcity badge ("3 seats left")
+- Compare toggle button (max 3 flights)
+- Favorite button with heart icon
+- Select button for booking
+
+### FlightStopsDetail
+
+Expandable timeline showing:
+
+- Each segment with times and flight numbers
+- Airlines per segment (for codeshares)
+- Layover duration with contextual advice
+- Clean neutral styling (not warning colors)
+
+### PriceGraph
+
+Interactive bar chart with:
+
+- Price distribution by time of day
+- Stat cards (Lowest, Average, Highest, Trend)
+- "Best time to book" indicator
+- Filter-aware (shows when filters active)
+- Click to filter by time slot
+
+### PriceCalendar
+
+Calendar showing prices by date:
+
+- Color-coded cells (green = cheap, red = expensive)
+- Click to show price popover (not redirect)
+- Savings calculation vs average
+
+### RouteMap
+
+Leaflet-based interactive map:
+
+- 120+ airports with accurate coordinates
+- Flight path arcs with animation
+- Stop markers for layovers
+- Synced with flight card hover/selection
 
 ---
 
@@ -259,34 +393,26 @@ MAD ─────●───────●───── BCN
 | Focus visible       | 2px emerald ring on all interactive elements |
 | ARIA labels         | Descriptive labels on buttons, regions       |
 | Screen reader text  | Hidden descriptions for complex UI           |
-| Keyboard navigation | Enter/Space for expandable sections          |
+| Keyboard navigation | Enter/Space for actions, Arrows for lists    |
 | Color contrast      | All text meets 4.5:1 ratio                   |
 | Reduced motion      | Respects `prefers-reduced-motion`            |
 
-### Semantic HTML
+### Keyboard Navigation
 
-```html
-<!-- Proper document structure -->
-<header>...</header>
-<main id="main-content">
-  <aside aria-label="Flight filters">...</aside>
-  <section id="flight-results" aria-label="Flight results">
-    <article role="listitem"><!-- FlightCard --></article>
-  </section>
-</main>
-
-<!-- Modal accessibility -->
-<div role="alertdialog" aria-modal="true" aria-labelledby="confirmation-title">
-  <h2 id="confirmation-title">Flight Selected!</h2>
-</div>
-```
+| Component      | Keys                                      |
+| -------------- | ----------------------------------------- |
+| FlightCard     | Enter/Space (select for map), Tab (actions) |
+| FavoritesList  | Enter (search), Delete (remove)           |
+| PriceCalendar  | Click for popover, Escape to close        |
+| FilterPanel    | Tab navigation, Space/Enter for toggles   |
+| ComparisonDrawer | Escape to close, Tab through flights    |
 
 ### Screen Reader Experience
 
 ```html
 <span class="sr-only">
   Iberia flight from Madrid to Barcelona, departing at 07:30, arriving at 08:55,
-  Non-stop, €89.50
+  Non-stop, €89
 </span>
 ```
 
@@ -315,11 +441,13 @@ MAD ─────●───────●───── BCN
    );
    ```
 
-3. **Lazy loading for modals**
+3. **Debounced hover for map sync**
 
    ```typescript
-   // BookingConfirmation only renders when needed
-   {isBookingConfirmationOpen && <BookingConfirmation />}
+   // 100ms debounce prevents rapid state updates
+   hoverTimeoutRef.current = setTimeout(() => {
+     setHoveredFlightId(flight.id);
+   }, 100);
    ```
 
 4. **CSS transitions over JS animations**
@@ -332,66 +460,15 @@ MAD ─────●───────●───── BCN
 ### Server-Side
 
 1. **API result caching** (5-minute TTL)
-2. **Limited results** (25 instead of 250)
-3. **Graceful degradation** (fallback to mocks)
-4. **Singleton Amadeus client** (connection reuse)
+2. **Graceful degradation** (fallback to mocks)
+3. **Limited concurrent requests**
 
 ### Bundle Optimization
 
 - Tree-shaking with ES modules
-- Dynamic imports for non-critical components
-- Lucide icons (individual imports, not full library)
-
----
-
-## Key Components
-
-### Component Hierarchy
-
-```
-SearchPage
-├── Header (sticky)
-│   └── Logo, Route info, Filter button (mobile)
-├── SearchForm (compact)
-├── Main
-│   ├── FilterPanel (desktop sidebar)
-│   ├── PriceGraph
-│   └── FlightList
-│       └── FlightCard[]
-│           └── FlightStopsDetail (expandable)
-├── MobileFilterPanel (slide-over)
-├── ComparisonDrawer (bottom sheet)
-└── BookingConfirmation (modal)
-```
-
-### FlightCard
-
-The core result component with:
-
-- Airline branding
-- Time/duration visualization
-- Stops indicator (clickable if > 0)
-- Price with scarcity badge
-- Compare toggle button
-- Select button
-
-### FlightStopsDetail
-
-Expandable timeline showing:
-
-- Each segment with times
-- Flight numbers and airlines
-- Layover duration and warnings
-- Airport names and codes
-
-### BookingConfirmation
-
-Success modal with:
-
-- Animated checkmark
-- Flight summary
-- Auto-redirect countdown
-- Keyboard dismissible
+- Dynamic imports for modals
+- Lucide icons (individual imports)
+- Leaflet loaded only on search page
 
 ---
 
@@ -410,13 +487,13 @@ Success modal with:
    ↓
 5. fetch('/api/flights?...')
    ↓
-6. API route checks cache → miss → calls Amadeus
+6. API route checks cache → miss → calls SerpApi
    ↓
 7. Transform response → cache → return
    ↓
 8. setFlights(results) → store update
    ↓
-9. FlightList + PriceGraph re-render
+9. FlightList + PriceGraph + RouteMap re-render
 ```
 
 ### Filter Flow
@@ -430,78 +507,24 @@ Success modal with:
    ↓
 4. Components subscribed to getFilteredFlights() re-render
    ↓
-5. Both FlightList and PriceGraph update simultaneously
+5. FlightList, PriceGraph, and stats update simultaneously
 ```
 
-### Selection Flow
+### Map Sync Flow
 
 ```
-1. User clicks "Select" on FlightCard
+1. User hovers FlightCard
    ↓
-2. selectFlight(flight) → store update
+2. Debounced setHoveredFlightId(flight.id)
    ↓
-3. isBookingConfirmationOpen = true
+3. RouteMap receives hoveredFlightId
    ↓
-4. BookingConfirmation modal appears
+4. Map highlights that flight's route
    ↓
-5. 3-second countdown starts
+5. User clicks card → setSelectedMapFlightId
    ↓
-6. resetAll() + router.push('/')
-   ↓
-7. User returns to home with clean state
+6. Route stays highlighted until another click
 ```
-
----
-
-## Testing Checklist
-
-### Manual Test Flow
-
-1. **Search**: MAD → BCN, future date, search
-2. **Results**: Verify flights display, graph shows
-3. **Filters**: Toggle stops, slide price, select airline
-4. **Stops Detail**: Click "1 stop" to expand timeline
-5. **Comparison**: Add 2-3 flights, open drawer
-6. **Selection**: Click "Select" → confirmation → redirect
-7. **Accessibility**: Tab through, use screen reader
-8. **Mobile**: Resize, test filter slide-over
-
-### API Test
-
-```bash
-curl "http://localhost:3000/api/flights?origin=MAD&destination=BCN&departureDate=2024-02-15"
-```
-
----
-
-## Deployment
-
-```bash
-# Vercel (recommended)
-npm install -g vercel
-vercel
-
-# Environment variables in Vercel dashboard:
-AMADEUS_API_KEY=xxx
-AMADEUS_API_SECRET=xxx
-AMADEUS_ENVIRONMENT=test  # or 'production'
-NEXT_PUBLIC_USE_MOCK=false
-```
-
----
-
-## Conclusion
-
-FlightSearch demonstrates a production-ready flight search with:
-
-- **Clean architecture**: Separation of concerns, typed interfaces
-- **Real API integration**: Amadeus with caching and fallbacks
-- **Excellent UX**: Progressive disclosure, immediate feedback
-- **Full accessibility**: WCAG 2.1 AA compliant
-- **Performance focused**: Selective renders, optimized API calls
-- **Client-side persistence**: Favorites and history with real-time sync
-
-The codebase is maintainable, extensible, and ready for production deployment.
 
 ---
 
@@ -509,69 +532,26 @@ The codebase is maintainable, extensible, and ready for production deployment.
 
 ### Architecture
 
-The application uses a custom localStorage hook with real-time synchronization across tabs and components:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    useLocalStorage Hook                      │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐   │
-│  │ localStorage│  │ Custom Event │  │   State Sync      │   │
-│  │   (data)    │  │'storage-sync'│  │  (React state)    │   │
-│  └──────┬──────┘  └──────┬───────┘  └─────────┬─────────┘   │
-│         │                │                    │              │
-│         └────────────────┴────────────────────┘              │
-└─────────────────────────────────────────────────────────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              │               │               │
-              ▼               ▼               ▼
-       ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │FavoritesList│  │SearchHistory│  │HomePage │
-       └───────────┘   └───────────┘   └───────────┘
-```
-
-### Implementation Details
+The application uses a custom localStorage hook with real-time synchronization:
 
 ```typescript
-// Custom event system for real-time sync
+// Custom event for same-tab sync
 const STORAGE_EVENT = "storage-sync";
 
 const setValue = (newValue: T) => {
-  // 1. Update localStorage
   localStorage.setItem(key, JSON.stringify(newValue));
-
-  // 2. Update React state
   setStoredValue(newValue);
 
-  // 3. Dispatch custom event for other components
+  // Notify other components
   window.dispatchEvent(
     new CustomEvent(STORAGE_EVENT, {
       detail: { key, value: newValue },
-    })
+    }),
   );
 };
-
-// Listen for changes from other components/tabs
-useEffect(() => {
-  const handleStorageSync = (e: CustomEvent) => {
-    if (e.detail.key === key) {
-      setStoredValue(e.detail.value);
-    }
-  };
-
-  window.addEventListener(STORAGE_EVENT, handleStorageSync);
-  window.addEventListener("storage", handleNativeStorage); // Cross-tab
-
-  return () => {
-    window.removeEventListener(STORAGE_EVENT, handleStorageSync);
-    window.removeEventListener("storage", handleNativeStorage);
-  };
-}, [key]);
 ```
 
 ### Hydration Safety
-
-To prevent hydration mismatches between server and client:
 
 ```typescript
 const [isHydrated, setIsHydrated] = useState(false);
@@ -580,132 +560,40 @@ useEffect(() => {
   setIsHydrated(true);
 }, []);
 
-// Components check isHydrated before rendering localStorage data
+// Render skeleton until hydrated
 if (!isHydrated) return <Skeleton />;
 ```
 
----
+### Favorites System
 
-## Favorites System
+When a user clicks a saved favorite:
 
-### Filter Application on Click
-
-When a user clicks a saved favorite, the application:
-
-1. Extracts airline and stops information from the favorite
+1. Extracts airline and stops from the favorite
 2. Applies filters to the flight store
-3. Navigates to search results with filters pre-applied
+3. Navigates to search with filters pre-applied
 
-```typescript
-const handleFavoriteClick = (favorite: FavoriteFlight) => {
-  // Apply filters based on favorite
-  setFilters({
-    airlines: [favorite.airline.code],
-    stops: [favorite.stops],
-  });
+---
 
-  // Navigate to search
-  router.push(`/search?origin=${favorite.origin.code}&...`);
+## Environment Configuration
 
-  // Close mobile panel if open
-  setFilterPanelOpen(false);
-};
-```
-
-### Data Structure
-
-```typescript
-interface FavoriteFlight {
-  id: string;
-  airline: { code: string; name: string };
-  origin: { code: string; city: string };
-  destination: { code: string; city: string };
-  departureTime: string;
-  arrivalTime: string;
-  duration: number;
-  stops: number;
-  price: { amount: number; currency: string };
-  savedAt: string; // ISO timestamp
-}
+```env
+# .env.local
+SERPAPI_API_KEY=your_serpapi_key_here
+NEXT_PUBLIC_USE_MOCK=false  # Set to true for development without API
 ```
 
 ---
 
-## Responsive Component Design
+## Conclusion
 
-### FavoritesList Variants
+FlightSearch demonstrates a production-ready flight search with:
 
-| Variant   | Usage              | Layout                              |
-| --------- | ------------------ | ----------------------------------- |
-| `full`    | Dedicated page     | Full details, all actions visible   |
-| `compact` | Mobile filter panel| Single line, essential info only    |
-| `sidebar` | Desktop sidebar    | Medium detail, scrollable list      |
+- **Clean architecture**: Provider pattern for API abstraction
+- **Real API integration**: SerpApi (Google Flights) with caching
+- **Interactive map**: Leaflet with flight path visualization
+- **Excellent UX**: Progressive disclosure, immediate feedback
+- **Full accessibility**: WCAG 2.1 AA compliant
+- **Performance focused**: Selective renders, debounced updates
+- **Modern stack**: Next.js 16, React 19, TypeScript, Tailwind CSS 4
 
-### SearchHistory Variants
-
-| Variant    | Usage              | Layout                              |
-| ---------- | ------------------ | ----------------------------------- |
-| `full`     | Home page section  | City names + codes + time ago       |
-| `compact`  | Mobile             | Codes only (MAD → BCN) + short date |
-| `dropdown` | Overlay/popover    | Compact with close handler          |
-
-### Responsive Breakpoints
-
-```typescript
-// Mobile-first approach
-const isMobile = useMediaQuery("(max-width: 1023px)");
-
-// Conditional rendering
-{isMobile ? (
-  <SearchHistory variant="compact" maxItems={3} />
-) : (
-  <SearchHistory variant="full" maxItems={5} />
-)}
-```
-
----
-
-## Accessibility Improvements
-
-### Keyboard Navigation
-
-All interactive components support full keyboard navigation:
-
-| Component      | Keys                                      |
-| -------------- | ----------------------------------------- |
-| FavoritesList  | Arrow Up/Down, Enter (select), Delete     |
-| SearchHistory  | Arrow Up/Down, Enter (select)             |
-| PriceCalendar  | Arrows (days), PageUp/Down (months)       |
-| FilterPanel    | Tab navigation, Space/Enter for toggles   |
-
-### ARIA Implementation
-
-```tsx
-<div
-  role="listbox"
-  aria-label="Saved flights"
-  aria-activedescendant={`favorite-${focusedIndex}`}
->
-  {favorites.map((fav, index) => (
-    <div
-      key={fav.id}
-      id={`favorite-${index}`}
-      role="option"
-      aria-selected={index === focusedIndex}
-      tabIndex={index === focusedIndex ? 0 : -1}
-    >
-      {/* content */}
-    </div>
-  ))}
-</div>
-```
-
-### Screen Reader Announcements
-
-```tsx
-<span className="sr-only">
-  {`${favorite.airline.name} flight from ${favorite.origin.city} to 
-    ${favorite.destination.city}, ${formatPrice(favorite.price)}, 
-    ${favorite.stops === 0 ? "non-stop" : `${favorite.stops} stop${favorite.stops > 1 ? "s" : ""}`}`}
-</span>
-```
+The codebase is maintainable, extensible, and ready for production deployment.

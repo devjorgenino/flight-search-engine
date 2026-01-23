@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useId, useCallback } from "react";
+import { useState, useId, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { mockAirports } from "@/mocks/airports";
 import { Button, Card } from "@/components/ui";
 import { AirportAutocomplete, INPUT_HEIGHT } from "./AirportAutocomplete";
 import { Airport } from "@/types/flight";
@@ -35,6 +34,18 @@ function formatDateDisplay(dateStr: string): string {
   });
 }
 
+// Fetch airport by code from API
+async function fetchAirportByCode(code: string): Promise<Airport | null> {
+  try {
+    const response = await fetch(`/api/airports?code=${code}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.data || null;
+  } catch {
+    return null;
+  }
+}
+
 interface SearchFormProps {
   variant?: "hero" | "compact";
   onSearch?: (params: {
@@ -52,15 +63,9 @@ export function SearchForm({ variant = "hero", onSearch }: SearchFormProps) {
   const formId = useId();
   const searchParams = useSearchParams();
 
-  const [origin, setOrigin] = useState<Airport | null>(() => {
-    const code = searchParams.get("origin");
-    return code ? mockAirports.find((a) => a.code === code) || null : null;
-  });
-
-  const [destination, setDestination] = useState<Airport | null>(() => {
-    const code = searchParams.get("destination");
-    return code ? mockAirports.find((a) => a.code === code) || null : null;
-  });
+  const [origin, setOrigin] = useState<Airport | null>(null);
+  const [destination, setDestination] = useState<Airport | null>(null);
+  const [isLoadingAirports, setIsLoadingAirports] = useState(false);
 
   const [departureDate, setDepartureDate] = useState(() => {
     return searchParams.get("departureDate") || "";
@@ -88,67 +93,101 @@ export function SearchForm({ variant = "hero", onSearch }: SearchFormProps) {
     origin: false,
     destination: false,
     departureDate: false,
+    passengers: false,
   });
 
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const originCode = searchParams.get("origin");
-  const destCode = searchParams.get("destination");
-  const deptDate = searchParams.get("departureDate");
-  const retDate = searchParams.get("returnDate");
-  const passStr = searchParams.get("passengers");
+  // Load airports from URL params on mount
+  useEffect(() => {
+    const originCode = searchParams.get("origin");
+    const destCode = searchParams.get("destination");
+    
+    if (!originCode && !destCode) return;
+    
+    setIsLoadingAirports(true);
+    
+    const loadAirports = async () => {
+      const promises: Promise<Airport | null>[] = [];
+      
+      if (originCode && !origin) {
+        promises.push(fetchAirportByCode(originCode));
+      } else {
+        promises.push(Promise.resolve(null));
+      }
+      
+      if (destCode && !destination) {
+        promises.push(fetchAirportByCode(destCode));
+      } else {
+        promises.push(Promise.resolve(null));
+      }
+      
+      const [originAirport, destAirport] = await Promise.all(promises);
+      
+      if (originAirport) setOrigin(originAirport);
+      if (destAirport) setDestination(destAirport);
+      
+      setIsLoadingAirports(false);
+    };
+    
+    loadAirports();
+  }, []); // Only run on mount
 
-  const [prevParams, setPrevParams] = useState({
-    originCode,
-    destCode,
-    deptDate,
-    retDate,
-    passStr,
-  });
+  // Sync URL changes to state (for when user navigates back)
+  const prevParamsRef = useState({
+    origin: searchParams.get("origin"),
+    destination: searchParams.get("destination"),
+    departureDate: searchParams.get("departureDate"),
+    returnDate: searchParams.get("returnDate"),
+    passengers: searchParams.get("passengers"),
+  })[0];
 
-  if (prevParams.originCode !== originCode) {
-    setPrevParams((prev) => ({ ...prev, originCode }));
-    if (originCode) {
-      const airport = mockAirports.find((a) => a.code === originCode);
-      if (airport) setOrigin(airport);
+  useEffect(() => {
+    const newOriginCode = searchParams.get("origin");
+    const newDestCode = searchParams.get("destination");
+    const newDeptDate = searchParams.get("departureDate");
+    const newRetDate = searchParams.get("returnDate");
+    const newPassengers = searchParams.get("passengers");
+
+    // Check if params changed
+    if (prevParamsRef.origin !== newOriginCode) {
+      prevParamsRef.origin = newOriginCode;
+      if (newOriginCode && origin?.code !== newOriginCode) {
+        fetchAirportByCode(newOriginCode).then((airport) => {
+          if (airport) setOrigin(airport);
+        });
+      }
     }
-  }
 
-  if (prevParams.destCode !== destCode) {
-    setPrevParams((prev) => ({ ...prev, destCode }));
-    if (destCode) {
-      const airport = mockAirports.find((a) => a.code === destCode);
-      if (airport) setDestination(airport);
+    if (prevParamsRef.destination !== newDestCode) {
+      prevParamsRef.destination = newDestCode;
+      if (newDestCode && destination?.code !== newDestCode) {
+        fetchAirportByCode(newDestCode).then((airport) => {
+          if (airport) setDestination(airport);
+        });
+      }
     }
-  }
 
-  const dateChanged =
-    prevParams.deptDate !== deptDate || prevParams.retDate !== retDate;
-
-  if (prevParams.deptDate !== deptDate) {
-    setPrevParams((prev) => ({ ...prev, deptDate }));
-    if (deptDate) setDepartureDate(deptDate);
-  }
-
-  if (prevParams.retDate !== retDate) {
-    setPrevParams((prev) => ({ ...prev, retDate }));
-    if (retDate) setReturnDate(retDate);
-  }
-
-  if (dateChanged) {
-    if (retDate) {
-      setTripType("roundtrip");
-    } else if (deptDate) {
-      setTripType("oneway");
+    if (prevParamsRef.departureDate !== newDeptDate) {
+      prevParamsRef.departureDate = newDeptDate;
+      if (newDeptDate) setDepartureDate(newDeptDate);
     }
-  }
 
-  if (prevParams.passStr !== passStr) {
-    setPrevParams((prev) => ({ ...prev, passStr }));
-    if (passStr) {
-      setPassengers(parseInt(passStr, 10));
+    if (prevParamsRef.returnDate !== newRetDate) {
+      prevParamsRef.returnDate = newRetDate;
+      if (newRetDate) {
+        setReturnDate(newRetDate);
+        setTripType("roundtrip");
+      } else if (newDeptDate) {
+        setTripType("oneway");
+      }
     }
-  }
+
+    if (prevParamsRef.passengers !== newPassengers) {
+      prevParamsRef.passengers = newPassengers;
+      if (newPassengers) setPassengers(parseInt(newPassengers, 10));
+    }
+  }, [searchParams, origin?.code, destination?.code, prevParamsRef]);
 
   const handleSwapAirports = useCallback(() => {
     const temp = origin;
@@ -182,7 +221,7 @@ export function SearchForm({ variant = "hero", onSearch }: SearchFormProps) {
     setReturnDate("");
     setPassengers(1);
     setTripType("roundtrip");
-    setTouched({ origin: false, destination: false, departureDate: false });
+    setTouched({ origin: false, destination: false, departureDate: false, passengers: false });
     resetAll();
     router.replace(pathname);
   }, [resetAll, router, pathname]);
@@ -190,7 +229,7 @@ export function SearchForm({ variant = "hero", onSearch }: SearchFormProps) {
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      setTouched({ origin: true, destination: true, departureDate: true });
+      setTouched({ origin: true, destination: true, departureDate: true, passengers: true });
 
       if (!origin || !destination || !departureDate) {
         return;
@@ -326,7 +365,7 @@ export function SearchForm({ variant = "hero", onSearch }: SearchFormProps) {
                   setOrigin(airport);
                   if (!touched.origin) setTouched((t) => ({ ...t, origin: true }));
                 }}
-                placeholder="City or airport"
+                placeholder={isLoadingAirports ? "Loading..." : "City or airport"}
                 excludeCode={destination?.code}
                 type="origin"
                 error={originError}
@@ -362,7 +401,7 @@ export function SearchForm({ variant = "hero", onSearch }: SearchFormProps) {
                   setDestination(airport);
                   if (!touched.destination) setTouched((t) => ({ ...t, destination: true }));
                 }}
-                placeholder="City or airport"
+                placeholder={isLoadingAirports ? "Loading..." : "City or airport"}
                 excludeCode={origin?.code}
                 type="destination"
                 error={destinationError}
@@ -484,18 +523,24 @@ export function SearchForm({ variant = "hero", onSearch }: SearchFormProps) {
                 <Users
                   className={cn(
                     "absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none",
-                    passengers > 1 ? "text-emerald-500" : "text-neutral-400"
+                    touched.passengers || searchParams.get("passengers") ? "text-emerald-500" : "text-neutral-400"
                   )}
                   aria-hidden="true"
                 />
                 <select
                   id={`${formId}-passengers`}
                   value={passengers}
-                  onChange={(e) => setPassengers(Number(e.target.value))}
-                  onFocus={() => setFocusedField("passengers")}
+                  onChange={(e) => {
+                    setPassengers(Number(e.target.value));
+                    if (!touched.passengers) setTouched((t) => ({ ...t, passengers: true }));
+                  }}
+                  onFocus={() => {
+                    setFocusedField("passengers");
+                    if (!touched.passengers) setTouched((t) => ({ ...t, passengers: true }));
+                  }}
                   onBlur={() => setFocusedField(null)}
                   className={cn(
-                    getInputStyles("passengers", passengers > 1),
+                    getInputStyles("passengers", touched.passengers || !!searchParams.get("passengers")),
                     "pl-12 pr-10 appearance-none cursor-pointer"
                   )}
                 >

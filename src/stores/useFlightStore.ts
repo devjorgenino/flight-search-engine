@@ -50,7 +50,7 @@ export interface FlightStore {
 
   // Computed
   getFilteredFlights: () => Flight[];
-  getAvailableAirlines: () => { code: string; name: string; count: number }[];
+  getAvailableAirlines: () => { code: string; name: string; logo?: string; count: number }[];
   getPriceRange: () => [number, number];
   getHoveredFlight: () => Flight | null;
 }
@@ -211,7 +211,7 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
     const { flights } = get();
     const airlineMap = new Map<
       string,
-      { code: string; name: string; count: number }
+      { code: string; name: string; logo?: string; count: number }
     >();
 
     flights.forEach((flight) => {
@@ -222,6 +222,7 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
         airlineMap.set(flight.airline.code, {
           code: flight.airline.code,
           name: flight.airline.name,
+          logo: flight.airline.logo,
           count: 1,
         });
       }

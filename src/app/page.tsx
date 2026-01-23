@@ -104,19 +104,10 @@ export default function Home() {
           {/* Price Calendar (Toggleable) */}
           {showCalendar && (
             <div className="mt-8 animate-fade-in max-w-2xl mx-auto">
-              <div className="text-center mb-4">
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  Sample prices for <strong>Madrid (MAD)</strong> to{" "}
-                  <strong>Barcelona (BCN)</strong>
-                </p>
-              </div>
               <PriceCalendar
                 prices={mockPrices}
                 currency="EUR"
                 showStats={true}
-                onSelectDate={(date) => {
-                  console.log("Selected date:", format(date, "yyyy-MM-dd"));
-                }}
               />
             </div>
           )}
